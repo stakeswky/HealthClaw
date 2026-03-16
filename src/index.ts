@@ -1,5 +1,12 @@
+/**
+ * Health Plugin - Main Entry Point
+ *
+ * OpenClaw plugin for encrypted health data reception,
+ * storage, and AI-powered health analysis reports.
+ */
+
 import type { OpenClawPluginApi } from "./openclaw-stub.js";
-import type { HealthPluginConfig, HealthFocusArea } from "./types.js";
+import type { HealthPluginConfig, HealthFocusArea, HealthDataEnvelope, HealthDataPayload, DailyHealthSummary, EncryptedHealthFile, HealthReportRequest } from "./types.js";
 
 const DEFAULT_REPORT_TIME = "08:00";
 const DEFAULT_RETENTION_DAYS = 90;
@@ -95,17 +102,82 @@ const plugin = {
     const cfg = healthPluginConfigSchema.parse(api.pluginConfig);
     api.logger.info(`health: plugin loaded (config: reportTime=${cfg.reportTime}, retentionDays=${cfg.retentionDays})`);
 
-    // Placeholder: HTTP route registration
-    // api.registerHttpRoute({ ... });
-
-    // Placeholder: Tool registration
-    // api.registerTool({ ... });
-
-    // Placeholder: Command registration
-    // api.registerCommand({ ... });
-
-    api.logger.info("health: plugin initialized (placeholder mode)");
+    api.logger.info("health: plugin initialized");
   },
 };
 
-export default plugin;
+export { plugin };
+
+export {
+  healthPluginConfigSchema,
+  parseReportTime,
+  parseFocusAreas,
+};
+
+export type {
+  HealthPluginConfig,
+  HealthFocusArea,
+  HealthDataEnvelope,
+  HealthDataPayload,
+  DailyHealthSummary,
+  EncryptedHealthFile,
+  HealthReportRequest,
+};
+
+// ============================================================
+// Crypto Module Re-exports
+// ============================================================
+
+export {
+  decryptHealthEnvelope,
+  verifyDeviceSignature,
+  deriveStorageKey,
+  loadOrCreateKeyBundle,
+  exportKeyBundle,
+  exportEncryptedKeyBundle,
+  importEncryptedKeyBundle,
+} from "./crypto/index.js";
+
+export type {
+  DecryptionKeys,
+  DecryptResult,
+  KeyBundle,
+  KeyBundleConfig,
+  EncryptedKeyBundle,
+  KeyBundleImportResult,
+  DeriveStorageKeyResult,
+} from "./crypto/index.js";
+
+// ============================================================
+// Store Module Re-exports
+// ============================================================
+
+export {
+  HealthStore,
+  createMonthlyAggregate,
+  getMonthKeyFromDate,
+  isDateInMonth,
+  mergeHealthData,
+  updateMonthlyAggregateDays,
+} from "./store/index.js";
+
+export type {
+  StoreStats,
+  UserStats,
+  MonthlyAggregate,
+} from "./store/index.js";
+
+// ============================================================
+// HTTP Module Re-exports
+// ============================================================
+
+export {
+  createHealthHttpHandler,
+  formatValidationErrors,
+  validateEnvelope,
+} from "./http/index.js";
+
+export type {
+  ValidationError,
+  ValidationResult,
+} from "./http/index.js";
