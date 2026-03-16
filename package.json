@@ -1,0 +1,17 @@
+{
+  "name": "@openclaw/health",
+  "version": "2026.3.16",
+  "private": true,
+  "description": "OpenClaw health data plugin — encrypted iOS health sync + AI analysis",
+  "type": "module",
+  "main": "./src/index.ts",
+  "dependencies": {
+    "@sinclair/typebox": "0.34.48"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0"
+  },
+  "openclaw": {
+    "extensions": ["./index.ts"]
+  }
+}
