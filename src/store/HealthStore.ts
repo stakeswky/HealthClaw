@@ -213,7 +213,10 @@ export class HealthStore {
       if (monthly) {
         for (const day of monthly.days) {
           if (day.date >= startDate && day.date <= endDate) {
-            if (!metrics || metrics.some((k) => (day as Record<string, unknown>)[k] != null)) {
+            if (
+              !metrics
+              || metrics.some((k) => (day as unknown as Record<string, unknown>)[k] != null)
+            ) {
               results.push(day);
             }
           }

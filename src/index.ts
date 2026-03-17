@@ -6,19 +6,20 @@
  */
 
 import type { OpenClawPluginApi } from "./openclaw-stub.js";
-import type { HealthPluginConfig, HealthFocusArea, HealthDataEnvelope, HealthDataPayload, DailyHealthSummary, EncryptedHealthFile, HealthReportRequest } from "./types.js";
+import {
+  HEALTH_FOCUS_AREAS,
+  type HealthPluginConfig,
+  type HealthFocusArea,
+  type HealthDataEnvelope,
+  type HealthDataPayload,
+  type DailyHealthSummary,
+  type EncryptedHealthFile,
+  type HealthReportRequest,
+} from "./types.js";
 
 const DEFAULT_REPORT_TIME = "08:00";
 const DEFAULT_RETENTION_DAYS = 90;
 const DEFAULT_LANGUAGE = "zh-CN";
-
-const HEALTH_FOCUS_AREAS = [
-  "weight_loss",
-  "fitness",
-  "sleep",
-  "heart_health",
-  "general_wellness",
-] as const;
 
 function parseReportTime(raw: unknown): string {
   if (typeof raw !== "string") return DEFAULT_REPORT_TIME;
