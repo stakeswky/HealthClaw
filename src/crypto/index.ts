@@ -2,7 +2,11 @@
 // Crypto Module Exports
 // ============================================================================
 
-export { decryptHealthEnvelope, verifyDeviceSignature } from "./decrypt.js";
+export {
+  decryptHealthEnvelope,
+  decryptRelayHealthEnvelope,
+  verifyDeviceSignature,
+} from "./decrypt.js";
 export {
   deriveStorageKey,
   loadOrCreateKeyBundle,
