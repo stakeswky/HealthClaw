@@ -547,3 +547,20 @@ export const healthReportToolDefinition = {
     "Generate a comprehensive health analysis report with trends, anomalies, and recommendations based on stored health data.",
   inputSchema: HealthReportSchema,
 };
+
+// ============================================================================
+// Exported Analysis Functions (shared with scheduler)
+// ============================================================================
+
+export const METRICS_TO_ANALYZE = [
+  "steps",
+  "activeCalories",
+  "restingHeartRate",
+  "averageHeartRate",
+  "heartRateVariability",
+  "bloodOxygen",
+  "sleepMinutes",
+  "weight",
+] as const;
+
+export { analyzeTrend, detectAnomalies, generateRecommendations, splitDataIntoPeriods, calculateDateRange, calculateTotalDays, generateMarkdownReport, validateFocusAreas };

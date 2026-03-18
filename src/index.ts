@@ -5,6 +5,9 @@
  * storage, and AI-powered health analysis reports.
  */
 
+import { createHash, createPrivateKey } from "node:crypto";
+import { promises as fs } from "node:fs";
+import path from "node:path";
 import type { OpenClawPluginApi } from "./openclaw-stub.js";
 import {
   HEALTH_FOCUS_AREAS,
@@ -24,12 +27,47 @@ import {
   resolveRelayPollingRuntimeConfig,
 } from "./relay/index.js";
 import { registerSetupCommand } from "./setup/setup-command.js";
+import { DailyReportScheduler } from "./scheduler/daily-report.js";
 
 const DEFAULT_REPORT_TIME = "08:00";
 const DEFAULT_RETENTION_DAYS = 90;
 const DEFAULT_LANGUAGE = "zh-CN";
 const DEFAULT_RELAY_POLL_INTERVAL_MS = 30_000;
 const DEFAULT_RELAY_BATCH_SIZE = 20;
+
+type PersistedRelayConfig = {
+  relayUrl: string;
+  gatewayDeviceId: string;
+  ed25519PrivateKeyPath: string;
+  configuredAt: number;
+};
+
+async function loadPersistedRelayConfig(
+  stateDir: string,
+): Promise<PersistedRelayConfig | null> {
+  try {
+    const raw = await fs.readFile(path.join(stateDir, "relay-config.json"), "utf8");
+    const parsed = JSON.parse(raw);
+    if (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      typeof parsed.relayUrl === "string" &&
+      typeof parsed.gatewayDeviceId === "string" &&
+      typeof parsed.ed25519PrivateKeyPath === "string"
+    ) {
+      return parsed as PersistedRelayConfig;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function deriveIdentityKeyFromPem(pemContent: string): string {
+  const keyObject = createPrivateKey(pemContent);
+  const rawKey = keyObject.export({ type: "pkcs8", format: "der" }).subarray(-32);
+  return createHash("sha256").update(rawKey).digest("hex");
+}
 
 function parseReportTime(raw: unknown): string {
   if (typeof raw !== "string") return DEFAULT_REPORT_TIME;
@@ -139,19 +177,16 @@ const plugin = {
 
   register(api: OpenClawPluginApi) {
     const cfg = healthPluginConfigSchema.parse(api.pluginConfig);
+    const stateDir = api.resolvePath("health");
     const store = new HealthStore({
-      stateDir: api.resolvePath("health"),
+      stateDir,
       retentionDays: cfg.retentionDays ?? DEFAULT_RETENTION_DAYS,
       logger: api.logger,
     });
-    const relayConfig = resolveRelayPollingRuntimeConfig(cfg);
-    const relayService = relayConfig
-      ? new RelayHealthIngestionService({
-          store,
-          logger: api.logger,
-          config: relayConfig,
-        })
-      : null;
+
+    // Deferred: relay config + identity key loaded async in service.start()
+    let relayService: RelayHealthIngestionService | null = null;
+    let scheduler: DailyReportScheduler | null = null;
 
     api.registerHttpRoute({
       path: "/health/upload",
@@ -172,21 +207,69 @@ const plugin = {
     api.registerService({
       id: "health",
       start: async () => {
+        // Load persisted relay config and derive identity key
+        const persisted = await loadPersistedRelayConfig(stateDir);
+        if (persisted) {
+          const keyPath = path.join(stateDir, persisted.ed25519PrivateKeyPath);
+          try {
+            const pemContent = await fs.readFile(keyPath, "utf8");
+
+            // Set env vars so resolveRelayPollingRuntimeConfig and HealthStore work
+            if (!process.env.OPENCLAW_ED25519_PRIVATE_KEY) {
+              process.env.OPENCLAW_ED25519_PRIVATE_KEY = pemContent;
+            }
+            if (!process.env.OPENCLAW_GATEWAY_IDENTITY_KEY) {
+              process.env.OPENCLAW_GATEWAY_IDENTITY_KEY = deriveIdentityKeyFromPem(pemContent);
+            }
+
+            api.logger.info("health: loaded persisted relay config and derived identity key");
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            api.logger.warn(`health: failed to load key from persisted config: ${msg}`);
+          }
+        }
+
+        // Merge persisted config into plugin config for relay resolution
+        const mergedCfg: HealthPluginConfig = {
+          ...cfg,
+          relayUrl: cfg.relayUrl || persisted?.relayUrl,
+          gatewayDeviceId: cfg.gatewayDeviceId || persisted?.gatewayDeviceId,
+        };
+
+        const relayConfig = resolveRelayPollingRuntimeConfig(mergedCfg);
+        if (relayConfig && mergedCfg.enableRelayPolling !== false) {
+          relayService = new RelayHealthIngestionService({
+            store,
+            logger: api.logger,
+            config: relayConfig,
+          });
+          relayService.start();
+        } else if (mergedCfg.relayUrl && !relayConfig) {
+          api.logger.warn(
+            "health: relay polling disabled because relay runtime configuration is incomplete",
+          );
+        }
+
         await store.cleanupExpired().catch((error) => {
           const message = error instanceof Error ? error.message : String(error);
           api.logger.warn(`health: initial cleanup failed: ${message}`);
         });
 
-        if (cfg.enableRelayPolling !== false && relayService) {
-          relayService.start();
-        } else if (cfg.relayUrl && !relayConfig) {
-          api.logger.warn(
-            "health: relay polling disabled because relay runtime configuration is incomplete",
-          );
+        // Start daily report scheduler
+        if (cfg.dailyReport !== false) {
+          scheduler = new DailyReportScheduler({
+            reportTime: cfg.reportTime ?? DEFAULT_REPORT_TIME,
+            store,
+            logger: api.logger,
+            focusAreas: cfg.focusAreas ?? ["general_wellness"],
+            language: cfg.language ?? DEFAULT_LANGUAGE,
+          });
+          scheduler.start();
         }
       },
       stop: async () => {
         await relayService?.stop();
+        scheduler?.stop();
       },
     });
 

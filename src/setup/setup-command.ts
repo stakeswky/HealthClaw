@@ -8,6 +8,8 @@
 import { createInterface } from "node:readline";
 import { createHash, createPrivateKey, createPublicKey, sign } from "node:crypto";
 import { networkInterfaces } from "node:os";
+import { promises as fs } from "node:fs";
+import path from "node:path";
 import { loadOrCreateKeyBundle } from "../crypto/key-bundle.js";
 import type { OpenClawPluginApi } from "../openclaw-stub.js";
 
@@ -240,6 +242,19 @@ async function runSetupWizard(api: OpenClawPluginApi): Promise<string> {
     });
 
     log(qrText);
+
+    // Step 6: Persist relay config for auto-start on next launch
+    const relayConfig = {
+      relayUrl: relayURL,
+      gatewayDeviceId,
+      ed25519PrivateKeyPath: "keys/ed25519_private.pem",
+      configuredAt: Date.now(),
+    };
+    const configPath = path.join(stateDir, "relay-config.json");
+    await fs.mkdir(stateDir, { recursive: true });
+    await fs.writeFile(configPath, JSON.stringify(relayConfig, null, 2), "utf8");
+    log(`\n💾 Relay config saved to ${configPath}`);
+
     log("\n✅ Setup complete. The iOS app will auto-configure after scanning.");
     log(`\nRelay URL: ${relayURL}`);
     log(`Device ID: ${gatewayDeviceId}`);
