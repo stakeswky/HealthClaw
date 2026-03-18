@@ -23,6 +23,7 @@ import {
   RelayHealthIngestionService,
   resolveRelayPollingRuntimeConfig,
 } from "./relay/index.js";
+import { registerSetupCommand } from "./setup/setup-command.js";
 
 const DEFAULT_REPORT_TIME = "08:00";
 const DEFAULT_RETENTION_DAYS = 90;
@@ -165,6 +166,8 @@ const plugin = {
     for (const tool of createHealthTools({ store })) {
       api.registerTool(tool, { name: tool.name });
     }
+
+    registerSetupCommand(api);
 
     api.registerService({
       id: "health",
