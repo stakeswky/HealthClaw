@@ -49,7 +49,7 @@ function createRelayEnvelope(
     privateKey: ephemeralPrivate,
     publicKey: gatewayPublicKey,
   });
-  const key = deriveX963Key(sharedSecret, Buffer.from("openclaw-health-sync"), 32);
+  const key = deriveX963Key(sharedSecret, Buffer.from("healthclaw-sync"), 32);
   const nonce = Buffer.from("0102030405060708090a0b0c", "hex");
   const cipher = createCipheriv("aes-256-gcm", key, nonce);
   const ciphertext = Buffer.concat([
@@ -140,8 +140,8 @@ describe("plugin relay integration", () => {
       relayPollIntervalMs: 5000,
       relayBatchSize: 10,
     });
-    process.env.OPENCLAW_DEVICE_ID = "a".repeat(64);
-    process.env.OPENCLAW_ED25519_PRIVATE_KEY = Buffer.alloc(32, 7).toString("base64url");
+    process.env.HEALTHCLAW_DEVICE_ID = "a".repeat(64);
+    process.env.HEALTHCLAW_ED25519_PRIVATE_KEY = Buffer.alloc(32, 7).toString("base64url");
 
     plugin.register(api);
 
@@ -158,10 +158,10 @@ describe("plugin relay integration", () => {
     const gatewayX25519Raw = gatewayPrivateKey.export({ format: "der", type: "pkcs8" }).subarray(-32);
     const signingPrivatePem = signingPrivateKey.export({ format: "pem", type: "pkcs8" }) as string;
 
-    process.env.OPENCLAW_DEVICE_ID = gatewayDeviceId;
-    process.env.OPENCLAW_ED25519_PRIVATE_KEY = signingPrivatePem;
-    process.env.OPENCLAW_GATEWAY_X25519_KEY = gatewayX25519Raw.toString("hex");
-    process.env.OPENCLAW_GATEWAY_IDENTITY_KEY = "11".repeat(32);
+    process.env.HEALTHCLAW_DEVICE_ID = gatewayDeviceId;
+    process.env.HEALTHCLAW_ED25519_PRIVATE_KEY = signingPrivatePem;
+    process.env.HEALTHCLAW_GATEWAY_X25519_KEY = gatewayX25519Raw.toString("hex");
+    process.env.HEALTHCLAW_GATEWAY_IDENTITY_KEY = "11".repeat(32);
 
     const deviceId = "c".repeat(64);
     const envelope = createRelayEnvelope(gatewayPublicKey, deviceId, gatewayDeviceId, {

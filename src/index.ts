@@ -1,7 +1,7 @@
 /**
  * Health Plugin - Main Entry Point
  *
- * OpenClaw plugin for encrypted health data reception,
+ * HealthClaw plugin for encrypted health data reception,
  * storage, and AI-powered health analysis reports.
  */
 
@@ -215,11 +215,11 @@ const plugin = {
             const pemContent = await fs.readFile(keyPath, "utf8");
 
             // Set env vars so resolveRelayPollingRuntimeConfig and HealthStore work
-            if (!process.env.OPENCLAW_ED25519_PRIVATE_KEY) {
-              process.env.OPENCLAW_ED25519_PRIVATE_KEY = pemContent;
+            if (!process.env.HEALTHCLAW_ED25519_PRIVATE_KEY) {
+              process.env.HEALTHCLAW_ED25519_PRIVATE_KEY = pemContent;
             }
-            if (!process.env.OPENCLAW_GATEWAY_IDENTITY_KEY) {
-              process.env.OPENCLAW_GATEWAY_IDENTITY_KEY = deriveIdentityKeyFromPem(pemContent);
+            if (!process.env.HEALTHCLAW_GATEWAY_IDENTITY_KEY) {
+              process.env.HEALTHCLAW_GATEWAY_IDENTITY_KEY = deriveIdentityKeyFromPem(pemContent);
             }
 
             api.logger.info("health: loaded persisted relay config and derived identity key");

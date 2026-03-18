@@ -11,7 +11,7 @@ import path from "node:path";
 import { tmpdir } from "node:os";
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from "node:crypto";
 
-const STORAGE_HKDF_INFO = Buffer.from("openclaw-health-storage-v1");
+const STORAGE_HKDF_INFO = Buffer.from("healthclaw-storage-v1");
 const STORAGE_HKDF_SALT = Buffer.alloc(32, 0);
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 

@@ -14,10 +14,10 @@ import {
 import type { HealthDataEnvelope, HealthDataPayload, RelayHealthEnvelope } from "../types.js";
 import type { DecryptionKeys, DecryptResult } from "./types.js";
 
-const HKDF_INFO = Buffer.from("openclaw-health-v1");
+const HKDF_INFO = Buffer.from("healthclaw-v1");
 const HKDF_SALT = Buffer.alloc(32, 0);
 const TIMESTAMP_DRIFT_MS = 5 * 60 * 1000; // 5 minutes tolerance
-const X963_INFO = Buffer.from("openclaw-health-sync");
+const X963_INFO = Buffer.from("healthclaw-sync");
 const X25519_PRIVATE_KEY_PREFIX = Buffer.from("302e020100300506032b656e04220420", "hex");
 const X25519_PUBLIC_KEY_PREFIX = Buffer.from("302a300506032b656e032100", "hex");
 
@@ -108,7 +108,7 @@ export function decryptHealthEnvelope(
  * Decrypts the canonical relay envelope using X25519 + ANSI X9.63 KDF + AES-256-GCM.
  *
  * This matches the current iOS CryptoKit implementation that derives the symmetric key via
- * `SharedSecret.x963DerivedSymmetricKey(using: .sha256, sharedInfo: "openclaw-health-sync")`.
+ * `SharedSecret.x963DerivedSymmetricKey(using: .sha256, sharedInfo: "healthclaw-sync")`.
  */
 export function decryptRelayHealthEnvelope(
   envelope: RelayHealthEnvelope,

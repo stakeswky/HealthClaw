@@ -140,7 +140,7 @@ export class RelayHealthIngestionService {
   private async pollMessages(): Promise<RelayPollHealthMessage[]> {
     const signedAtMs = Date.now();
     const gatewayId = this.config.gatewayDeviceId;
-    const payload = `openclaw-health-poll-v1\n${gatewayId}\n${signedAtMs}\nGET /v1/health/poll/${gatewayId}`;
+    const payload = `healthclaw-poll-v1\n${gatewayId}\n${signedAtMs}\nGET /v1/health/poll/${gatewayId}`;
     const signature = sign(null, Buffer.from(payload, "utf8"), this.gatewayPrivateKey).toString("base64url");
 
     const url = new URL(`/v1/health/poll/${gatewayId}`, withTrailingSlash(this.config.relayUrl));
@@ -169,7 +169,7 @@ export class RelayHealthIngestionService {
       gatewayId: this.config.gatewayDeviceId,
       messageIds,
     });
-    const payload = `openclaw-health-ack-v1\n${this.config.gatewayDeviceId}\n${signedAtMs}\n${body}`;
+    const payload = `healthclaw-ack-v1\n${this.config.gatewayDeviceId}\n${signedAtMs}\n${body}`;
     const signature = sign(null, Buffer.from(payload, "utf8"), this.gatewayPrivateKey).toString("base64url");
 
     const response = await this.fetchImpl(
@@ -213,8 +213,8 @@ export function resolveRelayPollingRuntimeConfig(
   const relayUrl = config.relayUrl?.trim();
   if (!relayUrl) return null;
 
-  const gatewayDeviceId = config.gatewayDeviceId?.trim() || env.OPENCLAW_DEVICE_ID?.trim() || "";
-  const gatewayEd25519PrivateKey = env.OPENCLAW_ED25519_PRIVATE_KEY?.trim() || "";
+  const gatewayDeviceId = config.gatewayDeviceId?.trim() || env.HEALTHCLAW_DEVICE_ID?.trim() || "";
+  const gatewayEd25519PrivateKey = env.HEALTHCLAW_ED25519_PRIVATE_KEY?.trim() || "";
   if (!gatewayDeviceId || !gatewayEd25519PrivateKey) {
     return null;
   }
@@ -256,7 +256,7 @@ function importEd25519PrivateKey(input: string): KeyObject {
         type: "pkcs8",
       });
     }
-    throw new Error("Unsupported OPENCLAW_ED25519_PRIVATE_KEY format");
+    throw new Error("Unsupported HEALTHCLAW_ED25519_PRIVATE_KEY format");
   }
 }
 

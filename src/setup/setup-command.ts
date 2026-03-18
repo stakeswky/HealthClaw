@@ -13,13 +13,13 @@ import path from "node:path";
 import { loadOrCreateKeyBundle } from "../crypto/key-bundle.js";
 import type { OpenClawPluginApi } from "../openclaw-stub.js";
 
-const OFFICIAL_RELAY = "https://openclaw-health-relay.stawky.workers.dev";
+const OFFICIAL_RELAY = "https://healthclaw.proxypool.eu.org";
 const PENDING_PAIRED_WITH = "0".repeat(64);
 const DEFAULT_PORT = 9090;
 
 interface QRPayload {
   v: 1;
-  type: "openclaw-health-pair";
+  type: "healthclaw-pair";
   relayURL: string;
   gatewayDeviceId: string;
   gatewayPublicKeyBase64: string;
@@ -72,7 +72,7 @@ async function registerGatewayWithRelay(
   ed25519PrivateKeyPem: string,
 ): Promise<{ ok: boolean; message: string }> {
   const signedAtMs = Date.now();
-  const payload = `openclaw-health-register-v1\n${deviceId}\n${signedAtMs}\ngateway\n${PENDING_PAIRED_WITH}`;
+  const payload = `healthclaw-register-v1\n${deviceId}\n${signedAtMs}\ngateway\n${PENDING_PAIRED_WITH}`;
   const privateKey = createPrivateKey(ed25519PrivateKeyPem);
   const signature = sign(null, Buffer.from(payload, "utf8"), privateKey).toString("base64url");
 
@@ -138,14 +138,14 @@ async function runSetupWizard(api: OpenClawPluginApi): Promise<string> {
   const lines: string[] = [];
   const log = (msg: string) => lines.push(msg);
 
-  log("🔧 OpenClaw Health — Setup Wizard\n");
+  log("🔧 HealthClaw — Setup Wizard\n");
 
   // Step 1: Load or create key bundle
   const stateDir = api.resolvePath("health");
   const keyDir = `${stateDir}/keys`;
   const cfg = api.pluginConfig as Record<string, unknown> | undefined;
   const deviceId = (cfg && typeof cfg.gatewayDeviceId === "string" && cfg.gatewayDeviceId)
-    || process.env.OPENCLAW_DEVICE_ID
+    || process.env.HEALTHCLAW_DEVICE_ID
     || randomHex(32);
 
   log("Loading gateway key bundle...");
@@ -214,7 +214,7 @@ async function runSetupWizard(api: OpenClawPluginApi): Promise<string> {
 
     const payload: QRPayload = {
       v: 1,
-      type: "openclaw-health-pair",
+      type: "healthclaw-pair",
       relayURL,
       gatewayDeviceId,
       gatewayPublicKeyBase64,
