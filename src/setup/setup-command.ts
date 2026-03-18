@@ -6,12 +6,13 @@
  */
 
 import { createInterface } from "node:readline";
-import { createPublicKey } from "node:crypto";
+import { createHash, createPrivateKey, createPublicKey, sign } from "node:crypto";
 import { networkInterfaces } from "node:os";
 import { loadOrCreateKeyBundle } from "../crypto/key-bundle.js";
 import type { OpenClawPluginApi } from "../openclaw-stub.js";
 
-const OFFICIAL_RELAY = "https://health-relay.openclaw.workers.dev";
+const OFFICIAL_RELAY = "https://openclaw-health-relay.stawky.workers.dev";
+const PENDING_PAIRED_WITH = "0".repeat(64);
 const DEFAULT_PORT = 9090;
 
 interface QRPayload {
@@ -45,6 +46,60 @@ function extractX25519PublicKeyBase64(x25519PublicKeyPem: string): string {
   // X25519 SPKI DER: 12-byte header + 32-byte raw key
   const rawKey = raw.subarray(raw.length - 32);
   return Buffer.from(rawKey).toString("base64");
+}
+
+function extractEd25519PublicKeyBase64Url(ed25519PublicKeyPem: string): string {
+  const keyObject = createPublicKey(ed25519PublicKeyPem);
+  const raw = keyObject.export({ type: "spki", format: "der" });
+  // Ed25519 SPKI DER: 12-byte header + 32-byte raw key
+  const rawKey = raw.subarray(raw.length - 32);
+  return Buffer.from(rawKey).toString("base64url");
+}
+
+function deriveDeviceId(ed25519PublicKeyPem: string): string {
+  const keyObject = createPublicKey(ed25519PublicKeyPem);
+  const raw = keyObject.export({ type: "spki", format: "der" });
+  const rawKey = raw.subarray(raw.length - 32);
+  return createHash("sha256").update(rawKey).digest("hex");
+}
+
+async function registerGatewayWithRelay(
+  relayURL: string,
+  deviceId: string,
+  ed25519PublicKeyBase64Url: string,
+  ed25519PrivateKeyPem: string,
+): Promise<{ ok: boolean; message: string }> {
+  const signedAtMs = Date.now();
+  const payload = `openclaw-health-register-v1\n${deviceId}\n${signedAtMs}\ngateway\n${PENDING_PAIRED_WITH}`;
+  const privateKey = createPrivateKey(ed25519PrivateKeyPem);
+  const signature = sign(null, Buffer.from(payload, "utf8"), privateKey).toString("base64url");
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    const response = await fetch(new URL("/v1/health/register", relayURL), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        deviceId,
+        publicKey: ed25519PublicKeyBase64Url,
+        role: "gateway",
+        pairedWith: PENDING_PAIRED_WITH,
+        signature,
+        signedAtMs,
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    const result = await response.json() as { ok?: boolean; error?: string; message?: string };
+    if (response.ok && result.ok) {
+      return { ok: true, message: "Gateway registered with relay" };
+    }
+    return { ok: false, message: `Registration failed: ${result.message || result.error || response.status}` };
+  } catch (err) {
+    return { ok: false, message: `Registration request failed: ${err instanceof Error ? err.message : String(err)}` };
+  }
 }
 
 async function testRelayConnectivity(url: string): Promise<{ ok: boolean; message: string }> {
@@ -136,20 +191,36 @@ async function runSetupWizard(api: OpenClawPluginApi): Promise<string> {
       log(`\nUsing official relay: ${relayURL}`);
     }
 
-    // Step 3: Build QR payload
+    // Step 3: Register gateway with relay
+    const gatewayDeviceId = deriveDeviceId(bundle.ed25519PublicKeyPem);
+    const ed25519PubBase64Url = extractEd25519PublicKeyBase64Url(bundle.ed25519PublicKeyPem);
+
+    log("\nRegistering gateway with relay...");
+    const regResult = await registerGatewayWithRelay(
+      relayURL,
+      gatewayDeviceId,
+      ed25519PubBase64Url,
+      bundle.ed25519PrivateKeyPem,
+    );
+    if (!regResult.ok) {
+      return lines.join("\n") + `\n❌ ${regResult.message}`;
+    }
+    log(`  ✓ ${regResult.message}`);
+
+    // Step 4: Build QR payload
     const gatewayPublicKeyBase64 = extractX25519PublicKeyBase64(bundle.x25519PublicKeyPem);
 
     const payload: QRPayload = {
       v: 1,
       type: "openclaw-health-pair",
       relayURL,
-      gatewayDeviceId: bundle.deviceId,
+      gatewayDeviceId,
       gatewayPublicKeyBase64,
     };
 
     const payloadJSON = JSON.stringify(payload);
 
-    // Step 4: Render QR in terminal
+    // Step 5: Render QR in terminal
     log("\n📱 Scan this QR code with the HealthClaw iOS app:\n");
 
     let qrcode: typeof import("qrcode-terminal");
@@ -171,7 +242,7 @@ async function runSetupWizard(api: OpenClawPluginApi): Promise<string> {
     log(qrText);
     log("\n✅ Setup complete. The iOS app will auto-configure after scanning.");
     log(`\nRelay URL: ${relayURL}`);
-    log(`Device ID: ${bundle.deviceId}`);
+    log(`Device ID: ${gatewayDeviceId}`);
 
     return lines.join("\n");
   } finally {
