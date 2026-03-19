@@ -32,6 +32,7 @@ export class FirstSyncNotifier {
   async maybeNotifyFirstSync(input: {
     userId: string;
     deviceId: string;
+    deviceName?: string;
     summary: DailyHealthSummary;
     action: "created" | "merged";
   }): Promise<void> {
@@ -48,7 +49,12 @@ export class FirstSyncNotifier {
     };
     await this.saveState(state);
 
-    const text = buildFirstSyncMessage(input.summary, input.deviceId, notifyCfg?.firstPairingMessage !== false);
+    const text = buildFirstSyncMessage(
+      input.summary,
+      input.deviceName ?? input.summary.deviceName,
+      input.deviceId,
+      notifyCfg?.firstPairingMessage !== false,
+    );
     this.logger.info(
       `health: first pairing confirmed for user=${input.userId} device=${input.deviceId}\n${text}`,
     );
@@ -101,13 +107,14 @@ export class FirstSyncNotifier {
 
 function buildFirstSyncMessage(
   summary: DailyHealthSummary,
+  deviceName: string | undefined,
   deviceId: string,
   includePairingLine = true,
 ): string {
   const lines: string[] = [];
 
   if (includePairingLine) {
-    lines.push(`已成功匹配健康设备 ${deviceId.slice(0, 8)}…。`);
+    lines.push(`已成功匹配 ${deviceName || `iPhone ${deviceId.slice(0, 8)}…`}。`);
   }
   lines.push("这是首次健康报告：");
 

@@ -346,6 +346,7 @@ const plugin = {
                 await firstSyncNotifier.maybeNotifyFirstSync({
                   userId: payload.userId,
                   deviceId,
+                  deviceName: payload.deviceName,
                   summary: {
                     ...payload,
                     receivedAt: Date.now(),

@@ -9,6 +9,8 @@
 export interface HealthDataPayload {
   /** Data date in YYYY-MM-DD format */
   date: string;
+  /** Human-readable device name from the source iPhone */
+  deviceName?: string;
   /** User identifier assigned during device pairing */
   userId: string;
   /** Step count */
