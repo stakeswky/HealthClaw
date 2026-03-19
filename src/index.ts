@@ -28,6 +28,7 @@ import {
 } from "./relay/index.js";
 import { registerSetupCommand } from "./setup/setup-command.js";
 import { DailyReportScheduler } from "./scheduler/daily-report.js";
+import { FirstSyncNotifier } from "./notify/first-sync.js";
 
 const DEFAULT_REPORT_TIME = "08:00";
 const DEFAULT_RETENTION_DAYS = 90;
@@ -165,6 +166,31 @@ const healthPluginConfigSchema = {
           : DEFAULT_RELAY_BATCH_SIZE,
       gatewayDeviceId:
         typeof cfg.gatewayDeviceId === "string" ? cfg.gatewayDeviceId.trim() : undefined,
+      notify:
+        cfg.notify && typeof cfg.notify === "object"
+          ? {
+              enabled:
+                typeof (cfg.notify as Record<string, unknown>).enabled === "boolean"
+                  ? (cfg.notify as Record<string, unknown>).enabled as boolean
+                  : true,
+              channel:
+                typeof (cfg.notify as Record<string, unknown>).channel === "string"
+                  ? ((cfg.notify as Record<string, unknown>).channel as string).trim()
+                  : undefined,
+              target:
+                typeof (cfg.notify as Record<string, unknown>).target === "string"
+                  ? ((cfg.notify as Record<string, unknown>).target as string).trim()
+                  : undefined,
+              firstPairingMessage:
+                typeof (cfg.notify as Record<string, unknown>).firstPairingMessage === "boolean"
+                  ? (cfg.notify as Record<string, unknown>).firstPairingMessage as boolean
+                  : true,
+              firstReportMessage:
+                typeof (cfg.notify as Record<string, unknown>).firstReportMessage === "boolean"
+                  ? (cfg.notify as Record<string, unknown>).firstReportMessage as boolean
+                  : true,
+            }
+          : undefined,
     };
   },
   jsonSchema: {
@@ -195,6 +221,17 @@ const healthPluginConfigSchema = {
         default: DEFAULT_RELAY_BATCH_SIZE,
       },
       gatewayDeviceId: { type: "string" },
+      notify: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          enabled: { type: "boolean", default: true },
+          channel: { type: "string" },
+          target: { type: "string" },
+          firstPairingMessage: { type: "boolean", default: true },
+          firstReportMessage: { type: "boolean", default: true }
+        }
+      },
     },
   },
 };
@@ -217,6 +254,12 @@ const plugin = {
     // Deferred: relay config + identity key loaded async in service.start()
     let relayService: RelayHealthIngestionService | null = null;
     let scheduler: DailyReportScheduler | null = null;
+    const firstSyncNotifier = new FirstSyncNotifier({
+      stateDir,
+      logger: api.logger,
+      runtime: api.runtime,
+      config: cfg,
+    });
 
     api.registerHttpRoute({
       path: "/health/upload",
@@ -298,6 +341,21 @@ const plugin = {
             store,
             logger: api.logger,
             config: relayConfig,
+            onProcessed: async ({ action, payload, deviceId }) => {
+              if (action === "created") {
+                await firstSyncNotifier.maybeNotifyFirstSync({
+                  userId: payload.userId,
+                  deviceId,
+                  summary: {
+                    ...payload,
+                    receivedAt: Date.now(),
+                    sourceDeviceId: deviceId,
+                    schemaVersion: 1,
+                  },
+                  action,
+                });
+              }
+            },
           });
           relayService.start();
         } else if (mergedCfg.relayUrl && !relayConfig) {

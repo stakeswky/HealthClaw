@@ -66,5 +66,15 @@ export type HealthReportRequest = SharedHealthReportRequest;
 export { HEALTH_FOCUS_AREAS };
 export type HealthFocusArea = SharedHealthFocusArea;
 
+export type HealthNotifyConfig = {
+  enabled?: boolean;
+  channel?: string;
+  target?: string;
+  firstPairingMessage?: boolean;
+  firstReportMessage?: boolean;
+};
+
 /** 插件配置类型 */
-export type HealthPluginConfig = SharedHealthPluginConfig;
+export type HealthPluginConfig = SharedHealthPluginConfig & {
+  notify?: HealthNotifyConfig;
+};
