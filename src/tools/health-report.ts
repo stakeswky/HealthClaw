@@ -459,7 +459,14 @@ export type HealthReportTool = {
   name: string;
   description: string;
   inputSchema: typeof HealthReportSchema;
-  execute: (params: HealthReportParams) => Promise<{ content: string }>;
+  parameters: typeof HealthReportSchema;
+  execute: (
+    toolCallId: string,
+    params: HealthReportParams,
+    signal?: AbortSignal,
+    onUpdate?: unknown,
+    ctx?: unknown,
+  ) => Promise<{ content: { type: "text"; text: string }[] }>;
 };
 
 export function createHealthReportTool(deps: HealthReportToolDeps): HealthReportTool {
@@ -468,7 +475,14 @@ export function createHealthReportTool(deps: HealthReportToolDeps): HealthReport
     description:
       "Generate a comprehensive health analysis report with trends, anomalies, and recommendations based on stored health data.",
     inputSchema: HealthReportSchema,
-    async execute(params: HealthReportParams): Promise<{ content: string }> {
+    parameters: HealthReportSchema,
+    async execute(
+      _toolCallId: string,
+      params: HealthReportParams,
+      _signal?: AbortSignal,
+      _onUpdate?: unknown,
+      _ctx?: unknown,
+    ): Promise<{ content: { type: "text"; text: string }[] }> {
       const { userId, period, focusAreas: inputFocusAreas } = params;
 
       const focusAreas = validateFocusAreas(inputFocusAreas);
@@ -519,7 +533,7 @@ export function createHealthReportTool(deps: HealthReportToolDeps): HealthReport
       };
 
       return {
-        content: generateMarkdownReport(result, focusAreas),
+        content: [{ type: "text", text: generateMarkdownReport(result, focusAreas) }],
       };
     },
   };
@@ -546,4 +560,22 @@ export const healthReportToolDefinition = {
   description:
     "Generate a comprehensive health analysis report with trends, anomalies, and recommendations based on stored health data.",
   inputSchema: HealthReportSchema,
+  parameters: HealthReportSchema,
 };
+
+// ============================================================================
+// Exported Analysis Functions (shared with scheduler)
+// ============================================================================
+
+export const METRICS_TO_ANALYZE = [
+  "steps",
+  "activeCalories",
+  "restingHeartRate",
+  "averageHeartRate",
+  "heartRateVariability",
+  "bloodOxygen",
+  "sleepMinutes",
+  "weight",
+] as const;
+
+export { analyzeTrend, detectAnomalies, generateRecommendations, splitDataIntoPeriods, calculateDateRange, calculateTotalDays, generateMarkdownReport, validateFocusAreas };

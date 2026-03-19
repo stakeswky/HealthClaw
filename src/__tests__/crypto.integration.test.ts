@@ -24,7 +24,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
 
-const HKDF_INFO = Buffer.from("openclaw-health-v1");
+const HKDF_INFO = Buffer.from("healthclaw-v1");
 const HKDF_SALT = Buffer.alloc(32, 0);
 
 describe("Crypto Integration", () => {
@@ -153,8 +153,8 @@ describe("Crypto Integration", () => {
 
     it("should derive different keys with different info", () => {
       const sharedSecret = randomBytes(32);
-      const info1 = Buffer.from("openclaw-health-v1");
-      const info2 = Buffer.from("openclaw-health-v2");
+      const info1 = Buffer.from("healthclaw-v1");
+      const info2 = Buffer.from("healthclaw-v2");
 
       const key1 = Buffer.from(hkdfSync("sha256", sharedSecret, HKDF_SALT, info1, 32));
       const key2 = Buffer.from(hkdfSync("sha256", sharedSecret, HKDF_SALT, info2, 32));

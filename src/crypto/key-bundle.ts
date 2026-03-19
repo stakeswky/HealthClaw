@@ -53,9 +53,9 @@ const KEY_FILES = {
   metadata: "key-metadata.json",
 } as const;
 
-const ENV_DEVICE_ID = "OPENCLAW_DEVICE_ID";
-const ENV_ED25519_PRIVATE_KEY = "OPENCLAW_ED25519_PRIVATE_KEY";
-const ENV_ED25519_PUBLIC_KEY = "OPENCLAW_ED25519_PUBLIC_KEY";
+const ENV_DEVICE_ID = "HEALTHCLAW_DEVICE_ID";
+const ENV_ED25519_PRIVATE_KEY = "HEALTHCLAW_ED25519_PRIVATE_KEY";
+const ENV_ED25519_PUBLIC_KEY = "HEALTHCLAW_ED25519_PUBLIC_KEY";
 
 // ============================================================================
 // Storage Key Derivation

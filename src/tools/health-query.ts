@@ -276,7 +276,14 @@ export type HealthQueryTool = {
   name: string;
   description: string;
   inputSchema: typeof HealthQuerySchema;
-  execute: (params: HealthQueryParams) => Promise<{ content: string }>;
+  parameters: typeof HealthQuerySchema;
+  execute: (
+    toolCallId: string,
+    params: HealthQueryParams,
+    signal?: AbortSignal,
+    onUpdate?: unknown,
+    ctx?: unknown,
+  ) => Promise<{ content: { type: "text"; text: string }[] }>;
 };
 
 /**
@@ -288,7 +295,14 @@ export function createHealthQueryTool(deps: HealthQueryToolDeps): HealthQueryToo
     description:
       "Query stored health data for a user by date range with optional aggregation. Returns aggregated metrics as a markdown table.",
     inputSchema: HealthQuerySchema,
-    async execute(params: HealthQueryParams): Promise<{ content: string }> {
+    parameters: HealthQuerySchema,
+    async execute(
+      _toolCallId: string,
+      params: HealthQueryParams,
+      _signal?: AbortSignal,
+      _onUpdate?: unknown,
+      _ctx?: unknown,
+    ): Promise<{ content: { type: "text"; text: string }[] }> {
       const { userId, startDate, endDate, types, aggregation = "avg" } = params;
 
       // Validate date range
@@ -327,7 +341,7 @@ export function createHealthQueryTool(deps: HealthQueryToolDeps): HealthQueryToo
       };
 
       return {
-        content: generateMarkdownTable(result),
+        content: [{ type: "text", text: generateMarkdownTable(result) }],
       };
     },
   };
@@ -341,4 +355,5 @@ export const healthQueryToolDefinition = {
   description:
     "Query stored health data for a user by date range with optional aggregation. Returns aggregated metrics as a markdown table.",
   inputSchema: HealthQuerySchema,
+  parameters: HealthQuerySchema,
 };

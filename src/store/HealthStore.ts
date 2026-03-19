@@ -19,7 +19,7 @@ import {
   updateMonthlyAggregateDays,
 } from "./aggregation.js";
 
-const STORAGE_HKDF_INFO = Buffer.from("openclaw-health-storage-v1");
+const STORAGE_HKDF_INFO = Buffer.from("healthclaw-storage-v1");
 const STORAGE_HKDF_SALT = Buffer.alloc(32, 0);
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const MONTH_PATTERN = /^\d{4}-\d{2}$/;
@@ -62,11 +62,11 @@ export class HealthStore {
   private getStorageKey(): Buffer {
     if (this.storageKey) return this.storageKey;
     const identitySecret = Buffer.from(
-      process.env.OPENCLAW_GATEWAY_IDENTITY_KEY ?? "",
+      process.env.HEALTHCLAW_GATEWAY_IDENTITY_KEY ?? "",
       "hex",
     );
     if (identitySecret.length === 0) {
-      throw new Error("OPENCLAW_GATEWAY_IDENTITY_KEY not configured");
+      throw new Error("HEALTHCLAW_GATEWAY_IDENTITY_KEY not configured");
     }
     this.storageKey = Buffer.from(
       hkdfSync("sha256", identitySecret, STORAGE_HKDF_SALT, STORAGE_HKDF_INFO, 32),
@@ -213,7 +213,10 @@ export class HealthStore {
       if (monthly) {
         for (const day of monthly.days) {
           if (day.date >= startDate && day.date <= endDate) {
-            if (!metrics || metrics.some((k) => (day as Record<string, unknown>)[k] != null)) {
+            if (
+              !metrics
+              || metrics.some((k) => (day as unknown as Record<string, unknown>)[k] != null)
+            ) {
               results.push(day);
             }
           }
@@ -375,9 +378,9 @@ export class HealthStore {
   }
 
   getDecryptionKeys(): DecryptionKeys {
-    const raw = process.env.OPENCLAW_GATEWAY_X25519_KEY ?? "";
+    const raw = process.env.HEALTHCLAW_GATEWAY_X25519_KEY ?? "";
     if (raw.length === 0) {
-      this.logger.warn("health: OPENCLAW_GATEWAY_X25519_KEY not configured");
+      this.logger.warn("health: HEALTHCLAW_GATEWAY_X25519_KEY not configured");
     }
     return { gatewayX25519PrivateKey: Buffer.from(raw, "hex") };
   }
