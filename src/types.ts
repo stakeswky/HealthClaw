@@ -2,7 +2,7 @@
 // Health Plugin Types
 // ============================================================================
 
-import { HEALTH_FOCUS_AREAS } from "../../shared-types/dist/index.js";
+import { HEALTH_FOCUS_AREAS } from "./shared-types/index.js";
 import type {
   DailyHealthSummary as SharedDailyHealthSummary,
   EncryptedHealthEnvelope,
@@ -13,7 +13,7 @@ import type {
   HealthReportRequest as SharedHealthReportRequest,
   PollHealthMessage,
   UploadHealthRequest,
-} from "../../shared-types/dist/index.js";
+} from "./shared-types/index.js";
 
 /**
  * Legacy direct-upload envelope still used by the plugin's standalone HTTP handler.
@@ -66,5 +66,15 @@ export type HealthReportRequest = SharedHealthReportRequest;
 export { HEALTH_FOCUS_AREAS };
 export type HealthFocusArea = SharedHealthFocusArea;
 
+export type HealthNotifyConfig = {
+  enabled?: boolean;
+  channel?: string;
+  target?: string;
+  firstPairingMessage?: boolean;
+  firstReportMessage?: boolean;
+};
+
 /** 插件配置类型 */
-export type HealthPluginConfig = SharedHealthPluginConfig;
+export type HealthPluginConfig = SharedHealthPluginConfig & {
+  notify?: HealthNotifyConfig;
+};

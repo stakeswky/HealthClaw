@@ -47,6 +47,7 @@ export type RelayHealthIngestionServiceDeps = {
   logger: PluginLogger;
   config: RelayPollingRuntimeConfig;
   fetchImpl?: typeof fetch;
+  onProcessed?: (event: { messageId: string; deviceId: string; action: "created" | "merged"; date: string; payload: import("../types.js").HealthDataPayload }) => Promise<void> | void;
 };
 
 export class RelayHealthIngestionService {
@@ -54,6 +55,7 @@ export class RelayHealthIngestionService {
   private readonly logger: PluginLogger;
   private readonly config: RelayPollingRuntimeConfig;
   private readonly fetchImpl: typeof fetch;
+  private readonly onProcessed?: RelayHealthIngestionServiceDeps["onProcessed"];
   private readonly gatewayPrivateKey: KeyObject;
   private running = false;
   private loopPromise: Promise<void> | null = null;
@@ -64,6 +66,7 @@ export class RelayHealthIngestionService {
     this.logger = deps.logger;
     this.config = deps.config;
     this.fetchImpl = deps.fetchImpl ?? fetch;
+    this.onProcessed = deps.onProcessed;
     this.gatewayPrivateKey = importEd25519PrivateKey(deps.config.gatewayEd25519PrivateKey);
   }
 
@@ -110,6 +113,13 @@ export class RelayHealthIngestionService {
         this.logger.info(
           `health: relay envelope processed messageId=${message.messageId} date=${saveResult.date} action=${saveResult.action}`,
         );
+        await this.onProcessed?.({
+          messageId: message.messageId,
+          deviceId: result.deviceId,
+          action: saveResult.action,
+          date: saveResult.date,
+          payload: result.payload,
+        });
       } catch (error) {
         const messageText = error instanceof Error ? error.message : String(error);
         this.logger.error(

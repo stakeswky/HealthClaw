@@ -1,8 +1,6 @@
 /**
- * health:setup — Interactive setup wizard for pairing iOS app with gateway.
- *
- * Generates a QR code in the terminal that the iOS app can scan
- * to complete pairing in one step.
+ * health_setup / health:setup — Interactive setup wizard for pairing iOS app
+ * with the gateway.
  */
 
 import { createInterface } from "node:readline";
@@ -123,15 +121,19 @@ async function testRelayConnectivity(url: string): Promise<{ ok: boolean; messag
 }
 
 export function registerSetupCommand(api: OpenClawPluginApi) {
-  api.registerCommand({
-    name: "health:setup",
-    description: "Interactive setup wizard — generates a QR code for iOS app pairing",
-    acceptsArgs: false,
-    handler: async () => {
-      const text = await runSetupWizard(api);
-      return { text };
-    },
-  });
+  const handler = async () => {
+    const text = await runSetupWizard(api);
+    return { text };
+  };
+
+  for (const name of ["health_setup", "health:setup"] as const) {
+    api.registerCommand({
+      name,
+      description: "Interactive setup wizard — generates a QR code for iOS app pairing",
+      acceptsArgs: false,
+      handler,
+    });
+  }
 }
 
 async function runSetupWizard(api: OpenClawPluginApi): Promise<string> {
