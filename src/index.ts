@@ -29,6 +29,9 @@ import {
 import { registerSetupCommand } from "./setup/setup-command.js";
 import { DailyReportScheduler } from "./scheduler/daily-report.js";
 import { FirstSyncNotifier } from "./notify/first-sync.js";
+import { HealthReportService } from "./report/HealthReportService.js";
+import { ProfileStore } from "./profile/ProfileStore.js";
+import { registerHealthCommand } from "./commands/health-command.js";
 
 const DEFAULT_REPORT_TIME = "08:00";
 const DEFAULT_RETENTION_DAYS = 90;
@@ -250,6 +253,14 @@ const plugin = {
       retentionDays: cfg.retentionDays ?? DEFAULT_RETENTION_DAYS,
       logger: api.logger,
     });
+    const profileStore = new ProfileStore({
+      stateDir,
+      logger: api.logger,
+    });
+    const reportService = new HealthReportService({
+      store,
+      profileStore,
+    });
 
     // Deferred: relay config + identity key loaded async in service.start()
     let relayService: RelayHealthIngestionService | null = null;
@@ -276,6 +287,11 @@ const plugin = {
     }
 
     registerSetupCommand(api);
+    registerHealthCommand(api, {
+      profileStore,
+      reportService,
+      focusAreas: cfg.focusAreas ?? ["general_wellness"],
+    });
 
     api.registerService({
       id: "health",
