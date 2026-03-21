@@ -8,11 +8,11 @@ const CUMULATIVE_KEYS = [
   "steps",
   "activeCalories",
   "walkingDistance",
-  "exerciseMinutes",
   "standHours",
 ] as const;
 
 const LATEST_KEYS = [
+  "exerciseMinutes",
   "restingHeartRate",
   "averageHeartRate",
   "heartRateVariability",
@@ -37,6 +37,10 @@ export function mergeHealthData(
 ): DailyHealthSummary {
   const merged = { ...existing };
   merged.receivedAt = Date.now();
+
+  if (incoming.deviceName) {
+    merged.deviceName = incoming.deviceName;
+  }
 
   for (const key of CUMULATIVE_KEYS) {
     if (incoming[key] != null) {

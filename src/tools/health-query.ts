@@ -52,7 +52,7 @@ export type AggregationType = keyof typeof AggregationTypeValues;
 export const HealthQuerySchema = Type.Object(
   {
     userId: Type.String({
-      description: "User identifier from device pairing",
+      description: "Beta user identifier, currently the paired iPhone deviceID",
     }),
     startDate: Type.String({
       description: "Start date in YYYY-MM-DD format",

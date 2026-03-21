@@ -111,7 +111,7 @@ export class RelayHealthIngestionService {
         const saveResult = await this.store.saveDailySummary(result.payload, result.deviceId);
         ackIds.push(message.messageId);
         this.logger.info(
-          `health: relay envelope processed messageId=${message.messageId} date=${saveResult.date} action=${saveResult.action}`,
+          `health: relay envelope processed messageId=${message.messageId} date=${saveResult.date} action=${saveResult.action} deviceName=${result.payload.deviceName ?? "<missing>"} exerciseMinutes=${result.payload.exerciseMinutes ?? "<missing>"}`,
         );
         await this.onProcessed?.({
           messageId: message.messageId,

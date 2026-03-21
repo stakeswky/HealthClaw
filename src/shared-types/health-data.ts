@@ -11,7 +11,7 @@ export interface HealthDataPayload {
   date: string;
   /** Human-readable device name from the source iPhone */
   deviceName?: string;
-  /** User identifier assigned during device pairing */
+  /** Beta user identifier, currently aligned to the iOS device ID */
   userId: string;
   /** Step count */
   steps?: number;
