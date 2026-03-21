@@ -3,6 +3,8 @@
 // ============================================================================
 
 import type { HealthStore } from "../store/HealthStore.js";
+import type { HealthReportService } from "../report/HealthReportService.js";
+import type { HealthFocusArea } from "../types.js";
 import {
   createHealthQueryTool,
   HealthQuerySchema,
@@ -70,6 +72,8 @@ export type {
 
 export type HealthToolsDeps = {
   store: HealthStore;
+  reportService: HealthReportService;
+  defaultFocusAreas?: HealthFocusArea[];
 };
 
 /**
@@ -78,7 +82,10 @@ export type HealthToolsDeps = {
 export function createHealthTools(deps: HealthToolsDeps) {
   return [
     createHealthQueryTool(deps),
-    createHealthReportTool(deps),
+    createHealthReportTool({
+      reportService: deps.reportService,
+      defaultFocusAreas: deps.defaultFocusAreas,
+    }),
   ];
 }
 

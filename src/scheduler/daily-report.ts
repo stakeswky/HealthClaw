@@ -7,18 +7,8 @@
 import type { PluginLogger } from "../openclaw-stub.js";
 import type { HealthStore } from "../store/HealthStore.js";
 import type { HealthFocusArea } from "../types.js";
-import {
-  analyzeTrend,
-  detectAnomalies,
-  generateRecommendations,
-  splitDataIntoPeriods,
-  calculateDateRange,
-  calculateTotalDays,
-  generateMarkdownReport,
-  METRICS_TO_ANALYZE,
-  type MetricTrend,
-  type HealthReportResult,
-} from "../tools/health-report.js";
+import type { HealthReportService } from "../report/HealthReportService.js";
+import { ReportDeliveryService } from "../report/ReportDeliveryService.js";
 
 export type DailyReportSchedulerOpts = {
   reportTime: string; // "HH:MM"
@@ -26,6 +16,8 @@ export type DailyReportSchedulerOpts = {
   logger: PluginLogger;
   focusAreas: HealthFocusArea[];
   language: string;
+  reportService: HealthReportService;
+  deliveryService: ReportDeliveryService;
 };
 
 export class DailyReportScheduler {
@@ -33,6 +25,8 @@ export class DailyReportScheduler {
   private readonly store: HealthStore;
   private readonly logger: PluginLogger;
   private readonly focusAreas: string[];
+  private readonly reportService: HealthReportService;
+  private readonly deliveryService: ReportDeliveryService;
   private timer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(opts: DailyReportSchedulerOpts) {
@@ -40,6 +34,8 @@ export class DailyReportScheduler {
     this.store = opts.store;
     this.logger = opts.logger;
     this.focusAreas = opts.focusAreas;
+    this.reportService = opts.reportService;
+    this.deliveryService = opts.deliveryService;
   }
 
   start(): void {
@@ -91,46 +87,39 @@ export class DailyReportScheduler {
 
       for (const user of stats.users) {
         if (user.dailyRecordCount === 0) continue;
+        try {
+          const result = await this.reportService.generate({
+            userId: user.userId,
+            period: "day",
+            focusAreas: this.focusAreas,
+          });
 
-        const { startDate, endDate } = calculateDateRange("week");
-        const data = await this.store.getDateRangeOptimized(user.userId, startDate, endDate);
+          if (result.status === "no_data") {
+            this.logger.debug(`health: daily report skipped for user=${user.userId} — no day data`);
+            continue;
+          }
 
-        if (data.length === 0) {
-          this.logger.debug(`health: daily report skipped for user=${user.userId} — no recent data`);
-          continue;
+          for (const warning of result.warnings) {
+            this.logger.warn(`health: daily report warning user=${user.userId}: ${warning}`);
+          }
+
+          if (result.status === "error") {
+            this.logger.error(
+              `health: daily report generation failed for user=${user.userId}: ${result.errorMessage}`,
+            );
+            continue;
+          }
+
+          const delivery = await this.deliveryService.send(result.markdown);
+          if (delivery === "sent") {
+            this.logger.info(`health: daily report generated for user=${user.userId}\n${result.markdown}`);
+          } else {
+            this.logger.warn(`health: daily report generated but undeliverable for user=${user.userId}`);
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          this.logger.error(`health: daily report iteration failed for user=${user.userId}: ${msg}`);
         }
-
-        const { current, previous } = splitDataIntoPeriods(data, "week");
-
-        const trends: MetricTrend[] = [];
-        for (const metric of METRICS_TO_ANALYZE) {
-          const trend = analyzeTrend(current, previous, metric);
-          if (trend) trends.push(trend);
-        }
-
-        const anomalies = detectAnomalies(data);
-        const recommendations = generateRecommendations(trends, anomalies, this.focusAreas);
-
-        const totalDays = calculateTotalDays(startDate, endDate);
-        const dataCompleteness = totalDays > 0 ? (data.length / totalDays) * 100 : 0;
-
-        const result: HealthReportResult = {
-          userId: user.userId,
-          period: "week",
-          startDate,
-          endDate,
-          summary: {
-            daysWithData: data.length,
-            totalDays,
-            dataCompleteness,
-          },
-          trends,
-          anomalies,
-          recommendations,
-        };
-
-        const markdown = generateMarkdownReport(result, this.focusAreas);
-        this.logger.info(`health: daily report generated for user=${user.userId}\n${markdown}`);
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

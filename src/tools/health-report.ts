@@ -5,7 +5,7 @@
 import { Type, type Static } from "@sinclair/typebox";
 import type { DailyHealthSummary, HealthFocusArea } from "../types.js";
 import { HEALTH_FOCUS_AREAS } from "../types.js";
-import type { HealthStore } from "../store/HealthStore.js";
+import type { HealthReportServiceResult } from "../report/types.js";
 
 // ============================================================================
 // Report Period Types
@@ -26,7 +26,7 @@ export type ReportPeriod = keyof typeof ReportPeriodValues;
 export const HealthReportSchema = Type.Object(
   {
     userId: Type.String({
-      description: "User identifier from device pairing",
+      description: "Beta user identifier, currently the paired iPhone deviceID",
     }),
     period: Type.Enum(ReportPeriodValues, {
       description: "Report period: day, week, or month",
@@ -452,7 +452,14 @@ function generateMarkdownReport(result: HealthReportResult, focusAreas: string[]
 // ============================================================================
 
 export type HealthReportToolDeps = {
-  store: HealthStore;
+  reportService: {
+    generate(input: {
+      userId: string;
+      period: ReportPeriod;
+      focusAreas: HealthFocusArea[] | string[];
+    }): Promise<HealthReportServiceResult>;
+  };
+  defaultFocusAreas?: HealthFocusArea[] | string[];
 };
 
 export type HealthReportTool = {
@@ -484,59 +491,28 @@ export function createHealthReportTool(deps: HealthReportToolDeps): HealthReport
       _ctx?: unknown,
     ): Promise<{ content: { type: "text"; text: string }[] }> {
       const { userId, period, focusAreas: inputFocusAreas } = params;
-
-      const focusAreas = validateFocusAreas(inputFocusAreas);
-
-      const { startDate, endDate } = calculateDateRange(period);
-
-      const data = await deps.store.getDateRangeOptimized(userId, startDate, endDate);
-
-      const { current, previous } = splitDataIntoPeriods(data, period);
-
-      const metricsToAnalyze = [
-        "steps",
-        "activeCalories",
-        "restingHeartRate",
-        "averageHeartRate",
-        "heartRateVariability",
-        "bloodOxygen",
-        "sleepMinutes",
-        "weight",
-      ];
-
-      const trends: MetricTrend[] = [];
-      for (const metric of metricsToAnalyze) {
-        const trend = analyzeTrend(current, previous, metric);
-        if (trend) trends.push(trend);
-      }
-
-      const anomalies = detectAnomalies(data);
-
-      const recommendations = generateRecommendations(trends, anomalies, focusAreas);
-
-      const totalDays = calculateTotalDays(startDate, endDate);
-      const dataCompleteness = totalDays > 0 ? (data.length / totalDays) * 100 : 0;
-
-      const result: HealthReportResult = {
-        userId,
-        period,
-        startDate,
-        endDate,
-        summary: {
-          daysWithData: data.length,
-          totalDays,
-          dataCompleteness,
-        },
-        trends,
-        anomalies,
-        recommendations,
-      };
+      const focusAreas = inputFocusAreas != null
+        ? validateFocusAreas(inputFocusAreas)
+        : validateFocusAreas(deps.defaultFocusAreas);
+      const result = await deps.reportService.generate({ userId, period, focusAreas });
+      const text = renderToolText(result);
 
       return {
-        content: [{ type: "text", text: generateMarkdownReport(result, focusAreas) }],
+        content: [{ type: "text", text }],
       };
     },
   };
+}
+
+function renderToolText(result: HealthReportServiceResult): string {
+  if (result.status === "error") {
+    return `Report generation failed: ${result.errorMessage}`;
+  }
+  if (result.status === "no_data") {
+    return "no health data for requested period";
+  }
+  const prefix = result.warnings.length > 0 ? `${result.warnings.join("\n")}\n` : "";
+  return `${prefix}${result.markdown}`;
 }
 
 function validateFocusAreas(areas?: string[]): string[] {

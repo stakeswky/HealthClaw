@@ -32,6 +32,7 @@ import { FirstSyncNotifier } from "./notify/first-sync.js";
 import { HealthReportService } from "./report/HealthReportService.js";
 import { ProfileStore } from "./profile/ProfileStore.js";
 import { registerHealthCommand } from "./commands/health-command.js";
+import { ReportDeliveryService } from "./report/ReportDeliveryService.js";
 
 const DEFAULT_REPORT_TIME = "08:00";
 const DEFAULT_RETENTION_DAYS = 90;
@@ -282,7 +283,11 @@ const plugin = {
       ) => Promise<boolean>,
     });
 
-    for (const tool of createHealthTools({ store })) {
+    for (const tool of createHealthTools({
+      store,
+      reportService,
+      defaultFocusAreas: cfg.focusAreas ?? ["general_wellness"],
+    })) {
       api.registerTool(tool, { name: tool.name });
     }
 
@@ -398,6 +403,13 @@ const plugin = {
             logger: api.logger,
             focusAreas: cfg.focusAreas ?? ["general_wellness"],
             language: cfg.language ?? DEFAULT_LANGUAGE,
+            reportService,
+            deliveryService: new ReportDeliveryService({
+              runtime: api.runtime,
+              notifyTarget: cfg.notify?.target,
+              notifyChannel: cfg.notify?.channel,
+              reportChannel: cfg.reportChannel,
+            }),
           });
           scheduler.start();
         }
