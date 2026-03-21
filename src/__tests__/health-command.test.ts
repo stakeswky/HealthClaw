@@ -11,6 +11,12 @@ describe("health command", () => {
         upsert: vi.fn().mockResolvedValue({ userId: USER_ID, gender: "male", age: 32, updatedAt: 1 }),
         clear: vi.fn().mockResolvedValue("cleared"),
       },
+      pendingOnboardingStore: {
+        load: vi.fn().mockResolvedValue(null),
+        acceptConsent: vi.fn().mockResolvedValue({ consentAcceptedAt: 1, updatedAt: 1 }),
+        upsert: vi.fn().mockResolvedValue({ consentAcceptedAt: 1, age: 32, updatedAt: 1 }),
+        clear: vi.fn().mockResolvedValue("cleared"),
+      },
       reportService: {
         generate: vi.fn().mockResolvedValue({
           status: "report",
@@ -26,6 +32,7 @@ describe("health command", () => {
     const command = createHealthCommand(makeDeps());
     const result = await command.handler({ args: "wat" });
     expect(result.text).toContain("/health report <userId> [day|week|month]");
+    expect(result.text).toContain("/health onboarding show");
   });
 
   it("registers the /health command through api.registerCommand", () => {
@@ -81,5 +88,34 @@ describe("health command", () => {
     const command = createHealthCommand(deps);
     const result = await command.handler({ args: `profile set ${USER_ID} gender 男` });
     expect(result.text).toBe("profile updated: gender=male");
+  });
+
+  it("requires consent before storing onboarding profile fields", async () => {
+    const deps = makeDeps();
+    deps.pendingOnboardingStore.load = vi.fn().mockResolvedValue(null);
+    const command = createHealthCommand(deps);
+
+    const result = await command.handler({ args: "onboarding set age 26" });
+
+    expect(result.text).toBe("onboarding consent required before storing profile data");
+  });
+
+  it("stores onboarding consent", async () => {
+    const deps = makeDeps();
+    const command = createHealthCommand(deps);
+
+    const result = await command.handler({ args: "onboarding consent yes" });
+
+    expect(result.text).toContain("onboarding consent saved");
+  });
+
+  it("stores onboarding profile fields after consent", async () => {
+    const deps = makeDeps();
+    deps.pendingOnboardingStore.load = vi.fn().mockResolvedValue({ consentAcceptedAt: 1, updatedAt: 1 });
+    const command = createHealthCommand(deps);
+
+    const result = await command.handler({ args: "onboarding set gender 男" });
+
+    expect(result.text).toBe("onboarding profile updated: gender=male");
   });
 });

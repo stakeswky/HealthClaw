@@ -31,6 +31,7 @@ import { DailyReportScheduler } from "./scheduler/daily-report.js";
 import { FirstSyncNotifier } from "./notify/first-sync.js";
 import { HealthReportService } from "./report/HealthReportService.js";
 import { ProfileStore } from "./profile/ProfileStore.js";
+import { PendingOnboardingStore } from "./onboarding/PendingOnboardingStore.js";
 import { registerHealthCommand } from "./commands/health-command.js";
 import { ReportDeliveryService } from "./report/ReportDeliveryService.js";
 
@@ -258,6 +259,9 @@ const plugin = {
       stateDir,
       logger: api.logger,
     });
+    const pendingOnboardingStore = new PendingOnboardingStore({
+      stateDir,
+    });
     const reportService = new HealthReportService({
       store,
       profileStore,
@@ -271,6 +275,9 @@ const plugin = {
       logger: api.logger,
       runtime: api.runtime,
       config: cfg,
+      pendingOnboardingStore,
+      profileStore,
+      reportService,
     });
 
     api.registerHttpRoute({
@@ -294,6 +301,7 @@ const plugin = {
     registerSetupCommand(api);
     registerHealthCommand(api, {
       profileStore,
+      pendingOnboardingStore,
       reportService,
       focusAreas: cfg.focusAreas ?? ["general_wellness"],
     });

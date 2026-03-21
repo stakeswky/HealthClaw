@@ -2,6 +2,7 @@ import type { OpenClawPluginApi } from "../openclaw-stub.js";
 import type { HealthFocusArea } from "../types.js";
 import type { HealthReportServiceResult } from "../report/types.js";
 import type { HealthUserProfile, ProfileClearResult } from "../profile/types.js";
+import type { PendingOnboardingClearResult, PendingOnboardingProfile } from "../onboarding/types.js";
 
 const USER_ID_PATTERN = /^[a-f0-9]{64}$/;
 
@@ -19,8 +20,18 @@ type ReportServiceLike = {
   }): Promise<HealthReportServiceResult>;
 };
 
+type PendingOnboardingStoreLike = {
+  load(): Promise<PendingOnboardingProfile | null>;
+  acceptConsent(): Promise<PendingOnboardingProfile>;
+  upsert(
+    input: Partial<Pick<PendingOnboardingProfile, "gender" | "age" | "heightCm" | "weightKg">>,
+  ): Promise<PendingOnboardingProfile>;
+  clear(): Promise<PendingOnboardingClearResult>;
+};
+
 export type HealthCommandDeps = {
   profileStore: ProfileStoreLike;
+  pendingOnboardingStore: PendingOnboardingStoreLike;
   reportService: ReportServiceLike;
   focusAreas: HealthFocusArea[] | string[];
 };
@@ -43,6 +54,9 @@ export function createHealthCommand(deps: HealthCommandDeps) {
       const [subcommand, ...rest] = rawArgs.split(/\s+/);
       if (subcommand === "profile") {
         return handleProfile(rest, deps.profileStore);
+      }
+      if (subcommand === "onboarding") {
+        return handleOnboarding(rest, deps.pendingOnboardingStore);
       }
       if (subcommand === "report") {
         return handleReport(rest, deps.reportService, deps.focusAreas);
@@ -98,6 +112,76 @@ async function handleProfile(args: string[], profileStore: ProfileStoreLike): Pr
     return { text: `profile updated: ${key}=${savedValue}` };
   } catch (error) {
     return { text: `profile store error: ${messageOf(error)}` };
+  }
+}
+
+async function handleOnboarding(
+  args: string[],
+  store: PendingOnboardingStoreLike,
+): Promise<{ text: string }> {
+  const [action, field, value] = args;
+  if (!action || action === "help") {
+    return { text: buildHealthOnboardingHelp() };
+  }
+
+  if (action === "show") {
+    try {
+      const profile = await store.load();
+      return { text: renderOnboarding(profile) };
+    } catch (error) {
+      return { text: `onboarding store error: ${messageOf(error)}` };
+    }
+  }
+
+  if (action === "clear") {
+    try {
+      const result = await store.clear();
+      return { text: result === "cleared" ? "onboarding profile cleared" : "onboarding profile not found" };
+    } catch (error) {
+      return { text: `onboarding store error: ${messageOf(error)}` };
+    }
+  }
+
+  if (action === "consent") {
+    const normalized = field?.trim().toLowerCase();
+    if (normalized === "yes") {
+      try {
+        await store.acceptConsent();
+        return {
+          text: "onboarding consent saved: profile data stays local and is used only to improve health analysis",
+        };
+      } catch (error) {
+        return { text: `onboarding store error: ${messageOf(error)}` };
+      }
+    }
+    if (normalized === "no") {
+      try {
+        await store.clear();
+        return { text: "onboarding declined: first analysis will use health records only" };
+      } catch (error) {
+        return { text: `onboarding store error: ${messageOf(error)}` };
+      }
+    }
+    return { text: "invalid consent value: use yes or no" };
+  }
+
+  if (action !== "set" || !field || value == null) {
+    return { text: buildHealthOnboardingHelp() };
+  }
+
+  try {
+    const existing = await store.load();
+    if (!existing?.consentAcceptedAt) {
+      return { text: "onboarding consent required before storing profile data" };
+    }
+    const normalized = normalizeOnboardingField(field, value);
+    if (!normalized) return { text: buildHealthOnboardingHelp() };
+    if ("error" in normalized) return { text: normalized.error };
+    await store.upsert(normalized.value);
+    const [key, savedValue] = Object.entries(normalized.value)[0] ?? [];
+    return { text: `onboarding profile updated: ${key}=${savedValue}` };
+  } catch (error) {
+    return { text: `onboarding store error: ${messageOf(error)}` };
   }
 }
 
@@ -176,6 +260,16 @@ function normalizeProfileField(
   return null;
 }
 
+function normalizeOnboardingField(
+  field: string,
+  rawValue: string,
+):
+  | { value: Partial<Pick<PendingOnboardingProfile, "gender" | "age" | "heightCm" | "weightKg">> }
+  | { error: string }
+  | null {
+  return normalizeProfileField(field, rawValue);
+}
+
 function renderProfile(profile: HealthUserProfile): string {
   const lines = [`userId: ${profile.userId}`];
   if (profile.gender != null) lines.push(`gender: ${profile.gender}`);
@@ -193,6 +287,10 @@ function buildHealthHelp(): string {
     "/health profile show <userId>",
     "/health profile set <userId> <field> <value>",
     "/health profile clear <userId>",
+    "/health onboarding show",
+    "/health onboarding consent <yes|no>",
+    "/health onboarding set <field> <value>",
+    "/health onboarding clear",
   ].join("\n");
 }
 
@@ -203,6 +301,27 @@ function buildHealthProfileHelp(): string {
     "example show: /health profile show <userId>",
     "example clear: /health profile clear <userId>",
   ].join("\n");
+}
+
+function buildHealthOnboardingHelp(): string {
+  return [
+    "/health onboarding show",
+    "/health onboarding consent <yes|no>",
+    "/health onboarding set <field> <value>",
+    "/health onboarding clear",
+    "supported fields: gender, age, heightCm, weightKg",
+  ].join("\n");
+}
+
+function renderOnboarding(profile: PendingOnboardingProfile | null): string {
+  if (!profile) return "onboarding profile not found";
+  const lines = [`consentAcceptedAt: ${new Date(profile.consentAcceptedAt).toISOString()}`];
+  if (profile.gender != null) lines.push(`gender: ${profile.gender}`);
+  if (profile.age != null) lines.push(`age: ${profile.age}`);
+  if (profile.heightCm != null) lines.push(`heightCm: ${profile.heightCm}`);
+  if (profile.weightKg != null) lines.push(`weightKg: ${profile.weightKg}`);
+  lines.push(`updatedAt: ${new Date(profile.updatedAt).toISOString()}`);
+  return lines.join("\n");
 }
 
 function messageOf(error: unknown): string {
