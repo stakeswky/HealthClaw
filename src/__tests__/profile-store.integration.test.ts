@@ -30,10 +30,11 @@ describe("ProfileStore", () => {
   });
 
   it("creates a profile with omitted unset fields", async () => {
-    const saved = await store.upsert({ userId: USER_ID.toUpperCase(), age: 32 });
+    const saved = await store.upsert({ userId: USER_ID.toUpperCase(), gender: "male", age: 32 });
     const loaded = await store.load(USER_ID);
 
     expect(saved.userId).toBe(USER_ID);
+    expect(saved.gender).toBe("male");
     expect(loaded).toEqual(saved);
     expect("heightCm" in (loaded ?? {})).toBe(false);
     expect("weightKg" in (loaded ?? {})).toBe(false);

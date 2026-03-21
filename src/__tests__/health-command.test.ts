@@ -8,7 +8,7 @@ describe("health command", () => {
     return {
       profileStore: {
         load: vi.fn().mockResolvedValue(null),
-        upsert: vi.fn().mockResolvedValue({ userId: USER_ID, age: 32, updatedAt: 1 }),
+        upsert: vi.fn().mockResolvedValue({ userId: USER_ID, gender: "male", age: 32, updatedAt: 1 }),
         clear: vi.fn().mockResolvedValue("cleared"),
       },
       reportService: {
@@ -40,12 +40,14 @@ describe("health command", () => {
     const deps = makeDeps();
     deps.profileStore.load = vi.fn().mockResolvedValue({
       userId: USER_ID,
+      gender: "male",
       age: 32,
       updatedAt: 1,
     });
     const command = createHealthCommand(deps);
     const result = await command.handler({ args: `profile show ${USER_ID}` });
     expect(result.text).toContain(`userId: ${USER_ID}`);
+    expect(result.text).toContain("gender: male");
     expect(result.text).toContain("age: 32");
   });
 
@@ -72,5 +74,12 @@ describe("health command", () => {
     const command = createHealthCommand(deps);
     const result = await command.handler({ args: `profile set ${USER_ID} age 32` });
     expect(result.text).toBe("profile updated: age=32");
+  });
+
+  it("normalizes chinese gender input to male", async () => {
+    const deps = makeDeps();
+    const command = createHealthCommand(deps);
+    const result = await command.handler({ args: `profile set ${USER_ID} gender 男` });
+    expect(result.text).toBe("profile updated: gender=male");
   });
 });

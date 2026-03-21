@@ -21,6 +21,7 @@ type ProfileStoreLike = {
 };
 
 type BasicProfile = {
+  gender?: "male" | "female";
   age?: number;
   heightCm?: number;
   weightKg?: number;
@@ -120,6 +121,9 @@ function toBasicProfile(value: unknown): BasicProfile {
   if (!value || typeof value !== "object") return {};
   const record = value as Record<string, unknown>;
   return {
+    gender: record.gender === "male" || record.gender === "female"
+      ? record.gender
+      : undefined,
     age: typeof record.age === "number" ? record.age : undefined,
     heightCm: typeof record.heightCm === "number" ? record.heightCm : undefined,
     weightKg: typeof record.weightKg === "number" ? record.weightKg : undefined,
@@ -128,6 +132,9 @@ function toBasicProfile(value: unknown): BasicProfile {
 
 function buildProfileContext(profile: BasicProfile): string[] {
   const lines: string[] = [];
+  if (profile.gender != null) {
+    lines.push(`Gender: ${profile.gender}`);
+  }
   if (profile.age != null) {
     lines.push(`Age: ${profile.age}`);
   }

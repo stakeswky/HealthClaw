@@ -44,9 +44,11 @@ export class ProfileStore {
     const existing = await this.load(normalizedUserId);
     const profile: HealthUserProfile = {
       userId: normalizedUserId,
+      ...(existing?.gender != null ? { gender: existing.gender } : {}),
       ...(existing?.age != null ? { age: existing.age } : {}),
       ...(existing?.heightCm != null ? { heightCm: existing.heightCm } : {}),
       ...(existing?.weightKg != null ? { weightKg: existing.weightKg } : {}),
+      ...(input.gender != null ? { gender: input.gender } : {}),
       ...(input.age != null ? { age: input.age } : {}),
       ...(input.heightCm != null ? { heightCm: input.heightCm } : {}),
       ...(input.weightKg != null ? { weightKg: input.weightKg } : {}),

@@ -83,7 +83,7 @@ describe("HealthReportService", () => {
       getDateRangeOptimized: vi.fn().mockResolvedValue([summary]),
     };
     const profileStore = {
-      load: vi.fn().mockResolvedValue({ userId: userId.toLowerCase(), age: 32, updatedAt: 1 }),
+      load: vi.fn().mockResolvedValue({ userId: userId.toLowerCase(), gender: "male", age: 32, updatedAt: 1 }),
     };
 
     const service = new HealthReportService({ store, profileStore });
@@ -96,6 +96,7 @@ describe("HealthReportService", () => {
     expect(result.status).toBe("report");
     if (result.status !== "report") throw new Error("expected report");
     expect(result.markdown).toContain("## Profile Context");
+    expect(result.markdown).toContain("Gender: male");
     expect(result.markdown).toContain("Age: 32");
     expect(result.markdown).not.toContain("BMI:");
   });
@@ -157,6 +158,7 @@ describe("HealthReportService", () => {
     const profileStore = {
       load: vi.fn().mockResolvedValue({
         userId: userId.toLowerCase(),
+        gender: "male",
         age: 32,
         heightCm: 172.5,
         weightKg: 68,
@@ -173,6 +175,7 @@ describe("HealthReportService", () => {
 
     expect(result.status).toBe("report");
     if (result.status !== "report") throw new Error("expected report");
+    expect(result.markdown).toContain("Gender: male");
     expect(result.markdown).toContain("Age: 32");
     expect(result.markdown).toContain("BMI:");
   });

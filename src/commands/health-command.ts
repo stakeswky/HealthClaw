@@ -135,9 +135,20 @@ function normalizeProfileField(
   field: string,
   rawValue: string,
 ):
-  | { value: Partial<Pick<HealthUserProfile, "age" | "heightCm" | "weightKg">> }
+  | { value: Partial<Pick<HealthUserProfile, "gender" | "age" | "heightCm" | "weightKg">> }
   | { error: string }
   | null {
+  if (field === "gender") {
+    const normalized = rawValue.trim().toLowerCase();
+    if (["male", "男"].includes(normalized)) {
+      return { value: { gender: "male" } };
+    }
+    if (["female", "女"].includes(normalized)) {
+      return { value: { gender: "female" } };
+    }
+    return { error: "invalid gender: use male/female or 男/女" };
+  }
+
   if (field === "age") {
     const parsed = Number.parseInt(rawValue, 10);
     if (!Number.isInteger(parsed) || parsed < 1 || parsed > 120) {
@@ -167,6 +178,7 @@ function normalizeProfileField(
 
 function renderProfile(profile: HealthUserProfile): string {
   const lines = [`userId: ${profile.userId}`];
+  if (profile.gender != null) lines.push(`gender: ${profile.gender}`);
   if (profile.age != null) lines.push(`age: ${profile.age}`);
   if (profile.heightCm != null) lines.push(`heightCm: ${profile.heightCm}`);
   if (profile.weightKg != null) lines.push(`weightKg: ${profile.weightKg}`);
@@ -186,7 +198,7 @@ function buildHealthHelp(): string {
 
 function buildHealthProfileHelp(): string {
   return [
-    "supported fields: age, heightCm, weightKg",
+    "supported fields: gender, age, heightCm, weightKg",
     `example set: /health profile set ${USER_ID_PATTERN.source.slice(1, 9)}... age 32`,
     "example show: /health profile show <userId>",
     "example clear: /health profile clear <userId>",
