@@ -4,4 +4,10 @@ declare module "qrcode-terminal" {
     options?: { small?: boolean },
     callback?: (qrcode: string) => void,
   ): void;
+  export function setErrorLevel(level: "L" | "M" | "Q" | "H"): void;
+  const qrcodeTerminal: {
+    generate: typeof generate;
+    setErrorLevel?: typeof setErrorLevel;
+  };
+  export default qrcodeTerminal;
 }

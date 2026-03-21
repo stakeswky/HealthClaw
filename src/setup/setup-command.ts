@@ -1,6 +1,5 @@
 /**
- * health_setup / health:setup — Interactive setup wizard for pairing iOS app
- * with the gateway.
+ * health_setup — Interactive setup wizard for pairing iOS app with the gateway.
  */
 
 import { createInterface } from "node:readline";
@@ -22,6 +21,15 @@ interface QRPayload {
   gatewayDeviceId: string;
   gatewayPublicKeyBase64: string;
 }
+
+type QRCodeTerminalRenderer = {
+  generate: (
+    text: string,
+    options?: { small?: boolean },
+    callback?: (qrcode: string) => void,
+  ) => void;
+  setErrorLevel?: (level: "L" | "M" | "Q" | "H") => void;
+};
 
 function prompt(rl: ReturnType<typeof createInterface>, question: string): Promise<string> {
   return new Promise((resolve) => rl.question(question, resolve));
@@ -126,14 +134,42 @@ export function registerSetupCommand(api: OpenClawPluginApi) {
     return { text };
   };
 
-  for (const name of ["health_setup", "health:setup"] as const) {
-    api.registerCommand({
-      name,
-      description: "Interactive setup wizard — generates a QR code for iOS app pairing",
-      acceptsArgs: false,
-      handler,
-    });
+  api.registerCommand({
+    name: "health_setup",
+    description: "Interactive setup wizard — generates a QR code for iOS app pairing",
+    acceptsArgs: false,
+    handler,
+  });
+}
+
+function resolveQRCodeRenderer(module: typeof import("qrcode-terminal")): QRCodeTerminalRenderer | null {
+  const resolved = ((module as { default?: unknown }).default ?? module) as Partial<QRCodeTerminalRenderer>;
+  if (typeof resolved.generate !== "function") {
+    return null;
   }
+  return resolved as QRCodeTerminalRenderer;
+}
+
+export function renderPairingInstructions(payload: QRPayload, qrText?: string): string {
+  const lines: string[] = [];
+
+  if (qrText) {
+    lines.push(qrText, "");
+  }
+
+  lines.push(
+    "Note: This ASCII QR is terminal-local only. If you forward it through chat apps, scanning may fail.",
+    "",
+    "Manual pairing fallback:",
+    `Relay URL: ${payload.relayURL}`,
+    `Gateway Device ID: ${payload.gatewayDeviceId}`,
+    `Gateway Public Key (Base64): ${payload.gatewayPublicKeyBase64}`,
+    "",
+    "Payload JSON:",
+    JSON.stringify(payload, null, 2),
+  );
+
+  return lines.join("\n");
 }
 
 async function runSetupWizard(api: OpenClawPluginApi): Promise<string> {
@@ -227,23 +263,41 @@ async function runSetupWizard(api: OpenClawPluginApi): Promise<string> {
     // Step 5: Render QR in terminal
     log("\n📱 Scan this QR code with the HealthClaw iOS app:\n");
 
-    let qrcode: typeof import("qrcode-terminal");
+    let qrcodeModule: typeof import("qrcode-terminal");
     try {
-      qrcode = await import("qrcode-terminal");
+      qrcodeModule = await import("qrcode-terminal");
     } catch {
-      // Fallback: just print the JSON
-      log("[qrcode-terminal not available — install it with: npm i qrcode-terminal]");
-      log(`\nPayload JSON:\n${payloadJSON}`);
+      log(renderPairingInstructions(
+        payload,
+        "[qrcode-terminal not available — install it with: npm i qrcode-terminal]",
+      ));
       return lines.join("\n");
     }
 
+    const qrcode = resolveQRCodeRenderer(qrcodeModule);
+    if (!qrcode) {
+      log(renderPairingInstructions(
+        payload,
+        "[qrcode-terminal loaded but no generate() export found]",
+      ));
+      return lines.join("\n");
+    }
+
+    if (typeof qrcode.setErrorLevel === "function") {
+      qrcode.setErrorLevel("M");
+    }
+
     const qrText = await new Promise<string>((resolve) => {
-      qrcode.generate(payloadJSON, { small: true }, (text: string) => {
-        resolve(text);
-      });
+      try {
+        qrcode.generate(payloadJSON, { small: true }, (text: string) => {
+          resolve(text);
+        });
+      } catch (error) {
+        resolve(`[qrcode-terminal generate failed: ${error instanceof Error ? error.message : String(error)}]`);
+      }
     });
 
-    log(qrText);
+    log(renderPairingInstructions(payload, qrText));
 
     // Step 6: Persist relay config for auto-start on next launch
     const relayConfig = {

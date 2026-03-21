@@ -1,0 +1,86 @@
+{
+  "id": "health",
+  "name": "Health",
+  "description": "Encrypted iOS health data sync with AI-powered daily analysis reports.",
+  "version": "2026.3.16",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "reportTime": {
+        "type": "string",
+        "pattern": "^\\d{2}:\\d{2}$",
+        "default": "08:00"
+      },
+      "focusAreas": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": ["weight_loss", "fitness", "sleep", "heart_health", "general_wellness"]
+        }
+      },
+      "retentionDays": {
+        "type": "number",
+        "minimum": 1,
+        "maximum": 365,
+        "default": 90
+      },
+      "language": {
+        "type": "string",
+        "default": "zh-CN"
+      },
+      "reportChannel": {
+        "type": "string"
+      },
+      "dailyReport": {
+        "type": "boolean",
+        "default": true
+      },
+      "relayUrl": {
+        "type": "string"
+      },
+      "enableRelayPolling": {
+        "type": "boolean"
+      },
+      "relayPollIntervalMs": {
+        "type": "number",
+        "minimum": 1000,
+        "maximum": 300000,
+        "default": 30000
+      },
+      "relayBatchSize": {
+        "type": "number",
+        "minimum": 1,
+        "maximum": 100,
+        "default": 20
+      },
+      "gatewayDeviceId": {
+        "type": "string"
+      },
+      "notify": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          },
+          "channel": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          },
+          "firstPairingMessage": {
+            "type": "boolean",
+            "default": true
+          },
+          "firstReportMessage": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      }
+    }
+  }
+}
