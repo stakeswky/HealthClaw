@@ -31,6 +31,21 @@ type QRCodeTerminalRenderer = {
   setErrorLevel?: (level: "L" | "M" | "Q" | "H") => void;
 };
 
+export type SetupWizardOptions =
+  | {
+      connectionMode?: "interactive";
+    }
+  | {
+      connectionMode: "official";
+    }
+  | {
+      connectionMode: "direct";
+    }
+  | {
+      connectionMode: "custom";
+      relayURL: string;
+    };
+
 function prompt(rl: ReturnType<typeof createInterface>, question: string): Promise<string> {
   return new Promise((resolve) => rl.question(question, resolve));
 }
@@ -173,6 +188,13 @@ export function renderPairingInstructions(payload: QRPayload, qrText?: string): 
 }
 
 async function runSetupWizard(api: OpenClawPluginApi): Promise<string> {
+  return runSetupWizardWithOptions(api, { connectionMode: "interactive" });
+}
+
+export async function runSetupWizardWithOptions(
+  api: Pick<OpenClawPluginApi, "pluginConfig" | "resolvePath">,
+  options: SetupWizardOptions,
+): Promise<string> {
   const lines: string[] = [];
   const log = (msg: string) => lines.push(msg);
 
@@ -191,45 +213,68 @@ async function runSetupWizard(api: OpenClawPluginApi): Promise<string> {
   log(`  Device ID: ${bundle.deviceId}`);
   log(`  X25519 public key loaded.\n`);
 
-  // Step 2: Choose connection mode
-  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  let relayURL: string;
 
-  try {
-    log("Choose connection mode:");
-    log("  [1] Direct (public IP)");
-    log("  [2] Custom relay");
-    log("  [3] Official relay (default)\n");
+  if (options.connectionMode === "interactive" || options.connectionMode == null) {
+    // Step 2: Choose connection mode
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+    try {
+      log("Choose connection mode:");
+      log("  [1] Direct (public IP)");
+      log("  [2] Custom relay");
+      log("  [3] Official relay (default)\n");
 
-    const choice = (await prompt(rl, "Enter choice [1/2/3]: ")).trim() || "3";
-
-    let relayURL: string;
-
-    if (choice === "1") {
-      // Direct connection
-      const ip = detectLocalIP();
-      if (!ip) {
-        return lines.join("\n") + "\n❌ Could not detect a local IP address. Use option 2 or 3 instead.";
+      const choice = (await prompt(rl, "Enter choice [1/2/3]: ")).trim() || "3";
+      if (choice === "1") {
+        const ip = detectLocalIP();
+        if (!ip) {
+          return lines.join("\n") + "\n❌ Could not detect a local IP address. Use option 2 or 3 instead.";
+        }
+        relayURL = `http://${ip}:${DEFAULT_PORT}`;
+        log(`\nUsing direct connection: ${relayURL}`);
+      } else if (choice === "2") {
+        const input = (await prompt(rl, "Enter relay URL: ")).trim();
+        if (!input) {
+          return lines.join("\n") + "\n❌ No URL provided.";
+        }
+        relayURL = input;
+        log(`\nTesting connectivity to ${relayURL}...`);
+        const result = await testRelayConnectivity(relayURL);
+        log(`  ${result.message}`);
+        if (!result.ok) {
+          return lines.join("\n") + "\n❌ Relay is not reachable. Check the URL and try again.";
+        }
+      } else {
+        relayURL = OFFICIAL_RELAY;
+        log(`\nUsing official relay: ${relayURL}`);
       }
-      relayURL = `http://${ip}:${DEFAULT_PORT}`;
-      log(`\nUsing direct connection: ${relayURL}`);
-    } else if (choice === "2") {
-      // Custom relay
-      const input = (await prompt(rl, "Enter relay URL: ")).trim();
-      if (!input) {
-        return lines.join("\n") + "\n❌ No URL provided.";
-      }
-      relayURL = input;
-      log(`\nTesting connectivity to ${relayURL}...`);
-      const result = await testRelayConnectivity(relayURL);
-      log(`  ${result.message}`);
-      if (!result.ok) {
-        return lines.join("\n") + "\n❌ Relay is not reachable. Check the URL and try again.";
-      }
-    } else {
-      // Official relay
-      relayURL = OFFICIAL_RELAY;
-      log(`\nUsing official relay: ${relayURL}`);
+    } finally {
+      rl.close();
     }
+  } else if (options.connectionMode === "official") {
+    relayURL = OFFICIAL_RELAY;
+    log(`\nUsing official relay: ${relayURL}`);
+  } else if (options.connectionMode === "direct") {
+    const ip = detectLocalIP();
+    if (!ip) {
+      return lines.join("\n") + "\n❌ Could not detect a local IP address. Use option 2 or 3 instead.";
+    }
+    relayURL = `http://${ip}:${DEFAULT_PORT}`;
+    log(`\nUsing direct connection: ${relayURL}`);
+  } else if (options.connectionMode === "custom") {
+    relayURL = options.relayURL.trim();
+    if (!relayURL) {
+      return lines.join("\n") + "\n❌ No relay URL provided.";
+    }
+    log(`\nTesting connectivity to ${relayURL}...`);
+    const result = await testRelayConnectivity(relayURL);
+    log(`  ${result.message}`);
+    if (!result.ok) {
+      return lines.join("\n") + "\n❌ Relay is not reachable. Check the URL and try again.";
+    }
+  } else {
+    return lines.join("\n") + "\n❌ Unsupported connection mode.";
+  }
 
     // Step 3: Register gateway with relay
     const gatewayDeviceId = deriveDeviceId(bundle.ed25519PublicKeyPem);
@@ -316,9 +361,6 @@ async function runSetupWizard(api: OpenClawPluginApi): Promise<string> {
     log(`Device ID: ${gatewayDeviceId}`);
 
     return lines.join("\n");
-  } finally {
-    rl.close();
-  }
 }
 
 function randomHex(bytes: number): string {

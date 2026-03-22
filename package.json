@@ -8,7 +8,8 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.json",
+    "bootstrap:install": "node scripts/bootstrap-install.mjs"
   },
   "dependencies": {
     "@sinclair/typebox": "0.34.48",
