@@ -20,20 +20,16 @@ HealthClaw 是一个运行在 OpenClaw Gateway 上的健康数据插件。
 你要在当前 OpenClaw Gateway 上安装并初始化 HealthClaw 插件，并让它进入如下流程：
 
 1. 安装并启用插件
-2. 询问用户：
-   - 性别
-   - 年龄
-   - 身高（cm）
-   - 体重（kg）
-3. 明确告诉用户：
-   - 这些信息只会保存在本地
-   - 用途是和健康记录一起分析，以提供更准确的结果
-   - 用户可以不提供；若不提供，分析会只基于健康记录
-4. 把用户回答写入插件的 onboarding 本地存储
-5. 运行 `/health_setup`
-6. 向用户返回二维码或手动配对字段
-7. 等待用户完成配对和首次同步
-8. 插件自动把“匹配成功 + 首次健康分析”发回当前 OpenClaw 主 agent 会话
+2. 安装完成后不要停下，必须立刻执行 `/health onboarding start`
+3. 按该命令返回的脚本继续：
+   - 询问用户画像
+   - 声明这些信息只保存在本地
+   - 写入本地 onboarding 存储
+   - 然后立即继续执行 `/health_setup`
+4. 自动选择官方 relay（选项 `3`）
+5. 向用户返回二维码或手动配对字段
+6. 等待用户完成配对和首次同步
+7. 插件自动把“匹配成功 + 首次健康分析”发回当前 OpenClaw 主 agent 会话
 
 ### 执行原则
 
@@ -41,6 +37,7 @@ HealthClaw 是一个运行在 OpenClaw Gateway 上的健康数据插件。
 - 在真正运行 OpenClaw Gateway 的那台机器上执行
 - 除非用户明确要求自建 relay，否则默认使用官方 relay：`https://healthclaw.proxypool.eu.org`
 - 不要使用旧命令 `health:setup`，只使用 `/health_setup`
+- 不要在“插件安装成功”后停下，必须继续进入 onboarding 和 pairing
 - 不要把 ASCII QR 当成跨聊天软件稳定可用的配对介质
 
 ---
@@ -101,7 +98,17 @@ npm run build
 
 ## 初始化流程
 
-### 1. 先向用户说明本地画像存储规则
+### 1. 从高层入口开始，不要自行缩短流程
+
+安装和启用插件后，第一步必须执行：
+
+```text
+/health onboarding start
+```
+
+这个命令会返回一段给 agent 执行的脚本。你必须继续执行它，而不是把 `/health_setup` 再抛给用户手动输入。
+
+### 2. 先向用户说明本地画像存储规则
 
 你必须先明确告诉用户：
 
@@ -109,7 +116,7 @@ npm run build
 - 它们只用于与健康记录共同分析，以得到更准确的结果
 - 用户可以拒绝提供；拒绝后照常配对，但分析会只基于健康记录
 
-### 2. 询问用户画像
+### 3. 询问用户画像
 
 依次询问：
 
@@ -118,7 +125,7 @@ npm run build
 - 身高（cm）
 - 体重（kg）
 
-### 3. 把画像写入插件本地 onboarding 存储
+### 4. 把画像写入插件本地 onboarding 存储
 
 如果用户同意提供画像，先记录 consent：
 
@@ -144,13 +151,14 @@ npm run build
 可用的辅助命令：
 
 ```text
+/health onboarding start
 /health onboarding show
 /health onboarding clear
 ```
 
-### 4. 运行配对
+### 5. 运行配对
 
-初始化完成后执行：
+完成画像采集后，你必须自己继续执行：
 
 ```text
 /health_setup
@@ -174,7 +182,7 @@ npm run build
   - `Payload JSON`
 - 写入本地 `relay-config.json`
 
-### 5. 二维码交付规则
+### 6. 二维码交付规则
 
 ASCII QR 只保证“终端本地扫码”：
 
@@ -193,7 +201,7 @@ ASCII QR 只保证“终端本地扫码”：
 - 本地终端场景：优先 ASCII QR
 - 远程聊天场景：优先手动配对字段
 
-### 6. 首次同步后的预期行为
+### 7. 首次同步后的预期行为
 
 用户完成配对并触发首次同步后，插件会自动：
 
@@ -234,6 +242,7 @@ tail -n 80 ~/.openclaw/logs/gateway.log
 ## 当前约束
 
 - 本仓库只包含 OpenClaw 插件本体，不包含 iOS App 和 relay worker 代码
+- 正确的高层初始化入口是 `/health onboarding start`
 - 正确配对命令是 `/health_setup`
-- 正确初始化流程是“先采集本地画像，再开始配对”
+- 正确初始化流程是“先 `/health onboarding start`，再采集本地画像，再自动继续配对”
 - 正确的远程兜底方式是“手动配对字段”，不是 PNG 二维码

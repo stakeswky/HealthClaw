@@ -118,4 +118,19 @@ describe("health command", () => {
 
     expect(result.text).toBe("onboarding profile updated: gender=male");
   });
+
+  it("returns an agent-first onboarding script for automatic installation flow", async () => {
+    const deps = makeDeps();
+    const command = createHealthCommand(deps);
+
+    const result = await command.handler({ args: "onboarding start" });
+
+    expect(result.text).toContain("先询问用户以下信息");
+    expect(result.text).toContain("这些信息只会保存在本地");
+    expect(result.text).toContain("/health onboarding consent yes");
+    expect(result.text).toContain("/health onboarding set gender");
+    expect(result.text).toContain("/health_setup");
+    expect(result.text).toContain("默认选择 3");
+    expect(result.text).toContain("不要停在“安装完成”");
+  });
 });

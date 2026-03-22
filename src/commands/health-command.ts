@@ -85,6 +85,10 @@ async function handleProfile(args: string[], profileStore: ProfileStoreLike): Pr
     }
   }
 
+  if (action === "start") {
+    return { text: buildHealthOnboardingStartScript() };
+  }
+
   if (action === "clear") {
     try {
       const result = await profileStore.clear(userId);
@@ -131,6 +135,10 @@ async function handleOnboarding(
     } catch (error) {
       return { text: `onboarding store error: ${messageOf(error)}` };
     }
+  }
+
+  if (action === "start") {
+    return { text: buildHealthOnboardingStartScript() };
   }
 
   if (action === "clear") {
@@ -305,11 +313,27 @@ function buildHealthProfileHelp(): string {
 
 function buildHealthOnboardingHelp(): string {
   return [
+    "/health onboarding start",
     "/health onboarding show",
     "/health onboarding consent <yes|no>",
     "/health onboarding set <field> <value>",
     "/health onboarding clear",
     "supported fields: gender, age, heightCm, weightKg",
+  ].join("\n");
+}
+
+function buildHealthOnboardingStartScript(): string {
+  return [
+    "先询问用户以下信息：性别、年龄、身高(cm)、体重(kg)。",
+    "必须明确告知用户：这些信息只会保存在本地，用于和健康记录共同分析，以提供更准确的结果；用户也可以不提供。",
+    "如果用户同意提供画像：",
+    "1. 先执行 /health onboarding consent yes",
+    "2. 再按实际回答依次执行 /health onboarding set gender|age|heightCm|weightKg ...",
+    "如果用户拒绝提供画像：执行 /health onboarding consent no",
+    "完成后你必须立即继续执行 /health_setup，不要停在“安装完成”。",
+    "运行 /health_setup 后默认选择 3（官方 relay）。",
+    "如果二维码需要跨聊天软件发送，不要转发 ASCII QR，改为返回手动配对字段。",
+    "首次同步成功后，插件会自动把匹配成功信息和首次健康分析发回当前主 agent 会话。",
   ].join("\n");
 }
 
