@@ -324,6 +324,7 @@ function buildHealthOnboardingHelp(): string {
 
 function buildHealthOnboardingStartScript(): string {
   return [
+    "不要先向用户回复安装完成、插件已就绪、下一步请手动输入命令之类的总结。",
     "先询问用户以下信息：性别、年龄、身高(cm)、体重(kg)。",
     "必须明确告知用户：这些信息只会保存在本地，用于和健康记录共同分析，以提供更准确的结果；用户也可以不提供。",
     "如果用户同意提供画像：",
@@ -332,7 +333,9 @@ function buildHealthOnboardingStartScript(): string {
     "如果用户拒绝提供画像：执行 /health onboarding consent no",
     "完成后你必须立即继续执行 /health_setup，不要停在“安装完成”。",
     "运行 /health_setup 后默认选择 3（官方 relay）。",
-    "如果二维码需要跨聊天软件发送，不要转发 ASCII QR，改为返回手动配对字段。",
+    "你必须原样返回 ASCII QR，使用 /health_setup 输出中的原文，使用代码块或其他 monospace-safe 方式展示。",
+    "不要把二维码转换成 base64、图片占位、表格摘要或“二维码已生成”之类的描述。",
+    "如果当前界面无法可靠展示 ASCII QR，则不要伪造二维码，改为只返回手动配对字段。",
     "首次同步成功后，插件会自动把匹配成功信息和首次健康分析发回当前主 agent 会话。",
   ].join("\n");
 }

@@ -132,5 +132,8 @@ describe("health command", () => {
     expect(result.text).toContain("/health_setup");
     expect(result.text).toContain("默认选择 3");
     expect(result.text).toContain("不要停在“安装完成”");
+    expect(result.text).toContain("不要先向用户回复安装完成");
+    expect(result.text).toContain("必须原样返回 ASCII QR");
+    expect(result.text).toContain("不要把二维码转换成 base64");
   });
 });
