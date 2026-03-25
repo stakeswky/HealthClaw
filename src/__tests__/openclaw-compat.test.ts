@@ -8,7 +8,7 @@ describe("openclaw compatibility guard", () => {
 
   it("throws a guided error when the legacy plugin line is used on a latest-only host", () => {
     expect(() => assertCompatibleOpenClawVersion("2026.3.25")).toThrow(
-      /openclaw-health-cli install/,
+      /healthclaw-cli install/,
     );
   });
 });

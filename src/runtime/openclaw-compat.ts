@@ -24,7 +24,7 @@ export function assertCompatibleOpenClawVersion(
       [
         "[openclaw-health] Unsupported OpenClaw version.",
         `  Current OpenClaw version: ${version}`,
-        "  Run: npx -y @stakeswky/openclaw-health-cli install",
+        "  Run: npx -y @stakeswky/healthclaw-cli install",
       ].join("\n"),
     );
   }
@@ -39,7 +39,7 @@ export function assertCompatibleOpenClawVersion(
       `  Current OpenClaw version: ${version}`,
       `  This plugin line supports: ${formatOpenClawCompatRange(findRangeForDistTag(currentDistTag))}`,
       `  Recommended plugin line: ${matched.label} (${matched.distTag})`,
-      "  Run: npx -y @stakeswky/openclaw-health-cli install",
+      "  Run: npx -y @stakeswky/healthclaw-cli install",
     ].join("\n"),
   );
 }
