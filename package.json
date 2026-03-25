@@ -1,5 +1,5 @@
 {
-  "name": "@stakeswky/openclaw-health",
+  "name": "@stakeswky/healthclaw",
   "version": "2.0.1",
   "description": "HealthClaw data plugin — encrypted iOS health sync + AI analysis",
   "type": "module",

@@ -42,13 +42,13 @@ HealthClaw 是一个运行在 OpenClaw Gateway 上的健康数据插件。
 ### 1. 首选：公开 installer CLI
 
 ```bash
-npx -y @stakeswky/openclaw-health-cli install
+npx -y @stakeswky/healthclaw-cli install
 ```
 
 这条命令会自动完成：
 
 - 检测本地 `openclaw --version`
-- 安装或更新 `@stakeswky/openclaw-health`
+- 安装或更新 `@stakeswky/healthclaw`
 - 询问 relay 选择和可选用户画像
 - 运行 setup，输出 ASCII QR 和手动配对字段
 - 在 setup 成功后重启 gateway
@@ -112,7 +112,7 @@ npm run bootstrap:install -- --consent no --relay official
 公开安装路径不要再手动串联 `/health onboarding ...` 和 `/health_setup`，也不要退回到 repo-local bootstrap。首次社区安装应直接执行：
 
 ```bash
-npx -y @stakeswky/openclaw-health-cli install
+npx -y @stakeswky/healthclaw-cli install
 ```
 
 只有在源码仓库直装时，才使用一次性 bootstrap CLI。
@@ -206,7 +206,7 @@ tail -n 80 ~/.openclaw/logs/gateway.log
 ## 当前约束
 
 - 本仓库只包含 OpenClaw 插件本体，不包含 iOS App 和 relay worker 代码
-- 首次社区安装入口是 `npx -y @stakeswky/openclaw-health-cli install`
+- 首次社区安装入口是 `npx -y @stakeswky/healthclaw-cli install`
 - `npm run bootstrap:install -- ...` 只作为源码仓库直装兼容路径保留
 - `/health onboarding start` 只作为已安装场景下的辅助高层命令保留
 - `/health_setup` 仍然是底层配对命令，但首次安装不应要求 agent 再手动串联它
