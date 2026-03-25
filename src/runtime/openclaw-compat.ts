@@ -1,4 +1,4 @@
-const CURRENT_PLUGIN_DIST_TAG: "latest" | "legacy" = "legacy";
+const CURRENT_PLUGIN_DIST_TAG: "latest" | "legacy" = "latest";
 const OPENCLAW_HEALTH_COMPAT_MATRIX = [
   {
     distTag: "legacy" as const,
