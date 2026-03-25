@@ -2,7 +2,8 @@ import { spawn } from "node:child_process";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { PendingOnboardingStore } from "../onboarding/PendingOnboardingStore.js";
-import { runSetupWizardWithOptions, type SetupWizardOptions } from "../setup/setup-command.js";
+import { runInstallCore } from "../install-core/run-install-core.js";
+import type { InstallCoreDeps } from "../install-core/types.js";
 
 export type BootstrapInstallOptions = {
   pluginPath: string;
@@ -23,10 +24,7 @@ type BootstrapInstallDeps = {
   readConfig?: (configPath: string) => Promise<BootstrapConfig>;
   writeConfig?: (configPath: string, config: BootstrapConfig) => Promise<void>;
   createPendingOnboardingStore?: (stateDir: string) => PendingOnboardingStore;
-  runSetup?: (
-    api: { pluginConfig: unknown; resolvePath(relativePath: string): string },
-    options: SetupWizardOptions,
-  ) => Promise<string>;
+  runSetup?: InstallCoreDeps["runSetup"];
   scheduleRestart?: (delayMs: number) => Promise<void> | void;
 };
 
@@ -38,23 +36,8 @@ export async function runBootstrapInstall(
   const writeConfig = deps.writeConfig ?? writeConfigFile;
   const config = await readConfig(options.configPath);
   const stateRoot = path.dirname(options.configPath);
-  const pluginStateDir = path.join(stateRoot, "health");
   const nextConfig = mergeHealthPluginConfig(config, options.pluginPath);
   await writeConfig(options.configPath, nextConfig);
-
-  const createStore = deps.createPendingOnboardingStore ?? ((stateDir: string) => new PendingOnboardingStore({ stateDir }));
-  const pendingStore = createStore(pluginStateDir);
-  if (options.consent === "yes") {
-    await pendingStore.acceptConsent();
-    await pendingStore.upsert({
-      ...(options.gender != null ? { gender: options.gender } : {}),
-      ...(options.age != null ? { age: options.age } : {}),
-      ...(options.heightCm != null ? { heightCm: options.heightCm } : {}),
-      ...(options.weightKg != null ? { weightKg: options.weightKg } : {}),
-    });
-  } else {
-    await pendingStore.clear();
-  }
 
   const pluginConfig = (
     nextConfig.plugins
@@ -69,19 +52,23 @@ export async function runBootstrapInstall(
       : {}
   );
 
-  const api = {
-    pluginConfig,
-    resolvePath(relativePath: string) {
-      return path.join(stateRoot, relativePath);
+  const setupText = await runInstallCore(
+    {
+      stateRoot,
+      pluginConfig,
+      relay: options.relay,
+      relayURL: options.relayURL,
+      consent: options.consent,
+      gender: options.gender,
+      age: options.age,
+      heightCm: options.heightCm,
+      weightKg: options.weightKg,
     },
-  };
-  const runSetup = deps.runSetup ?? runSetupWizardWithOptions;
-  const setupOptions: SetupWizardOptions = options.relay === "official"
-    ? { connectionMode: "official" }
-    : options.relay === "direct"
-      ? { connectionMode: "direct" }
-      : { connectionMode: "custom", relayURL: options.relayURL ?? "" };
-  const setupText = await runSetup(api, setupOptions);
+    {
+      createPendingOnboardingStore: deps.createPendingOnboardingStore,
+      runSetup: deps.runSetup,
+    },
+  );
 
   const scheduleRestart = deps.scheduleRestart ?? defaultScheduleRestart;
   await scheduleRestart(options.restartDelayMs ?? 1500);

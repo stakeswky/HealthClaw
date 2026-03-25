@@ -1,14 +1,29 @@
 {
-  "name": "@openclaw/health",
-  "version": "2026.3.16",
-  "private": true,
+  "name": "@stakeswky/openclaw-health",
+  "version": "0.1.0",
   "description": "HealthClaw data plugin — encrypted iOS health sync + AI analysis",
   "type": "module",
-  "main": "./src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "openclaw.plugin.json",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./install-core/run-install-core": {
+      "types": "./dist/install-core/run-install-core.d.ts",
+      "import": "./dist/install-core/run-install-core.js"
+    }
+  },
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "build": "tsc -p tsconfig.json",
+    "build": "rm -rf dist && tsc -p tsconfig.json",
     "bootstrap:install": "node scripts/bootstrap-install.mjs"
   },
   "dependencies": {
@@ -23,7 +38,7 @@
   },
   "openclaw": {
     "extensions": [
-      "./src/index.ts"
+      "./dist/index.js"
     ]
   }
 }

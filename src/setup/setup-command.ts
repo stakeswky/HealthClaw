@@ -8,19 +8,16 @@ import { networkInterfaces } from "node:os";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { loadOrCreateKeyBundle } from "../crypto/key-bundle.js";
+import { renderPairingInstructions } from "../install-core/render-pairing-output.js";
 import type { OpenClawPluginApi } from "../openclaw-stub.js";
+
+export { renderPairingInstructions } from "../install-core/render-pairing-output.js";
 
 const OFFICIAL_RELAY = "https://healthclaw.proxypool.eu.org";
 const PENDING_PAIRED_WITH = "0".repeat(64);
 const DEFAULT_PORT = 9090;
 
-interface QRPayload {
-  v: 1;
-  type: "healthclaw-pair";
-  relayURL: string;
-  gatewayDeviceId: string;
-  gatewayPublicKeyBase64: string;
-}
+type QRPayload = Parameters<typeof renderPairingInstructions>[0];
 
 type QRCodeTerminalRenderer = {
   generate: (
@@ -163,28 +160,6 @@ function resolveQRCodeRenderer(module: typeof import("qrcode-terminal")): QRCode
     return null;
   }
   return resolved as QRCodeTerminalRenderer;
-}
-
-export function renderPairingInstructions(payload: QRPayload, qrText?: string): string {
-  const lines: string[] = [];
-
-  if (qrText) {
-    lines.push(qrText, "");
-  }
-
-  lines.push(
-    "Note: This ASCII QR is terminal-local only. If you forward it through chat apps, scanning may fail.",
-    "",
-    "Manual pairing fallback:",
-    `Relay URL: ${payload.relayURL}`,
-    `Gateway Device ID: ${payload.gatewayDeviceId}`,
-    `Gateway Public Key (Base64): ${payload.gatewayPublicKeyBase64}`,
-    "",
-    "Payload JSON:",
-    JSON.stringify(payload, null, 2),
-  );
-
-  return lines.join("\n");
 }
 
 async function runSetupWizard(api: OpenClawPluginApi): Promise<string> {

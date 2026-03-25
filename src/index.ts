@@ -34,6 +34,10 @@ import { ProfileStore } from "./profile/ProfileStore.js";
 import { PendingOnboardingStore } from "./onboarding/PendingOnboardingStore.js";
 import { registerHealthCommand } from "./commands/health-command.js";
 import { ReportDeliveryService } from "./report/ReportDeliveryService.js";
+import {
+  assertCompatibleOpenClawVersion,
+  resolveHostOpenClawVersion,
+} from "./runtime/openclaw-compat.js";
 
 const DEFAULT_REPORT_TIME = "08:00";
 const DEFAULT_RETENTION_DAYS = 90;
@@ -248,6 +252,7 @@ const plugin = {
   configSchema: healthPluginConfigSchema,
 
   register(api: OpenClawPluginApi) {
+    assertCompatibleOpenClawVersion(resolveHostOpenClawVersion(api.runtime));
     const cfg = healthPluginConfigSchema.parse(api.pluginConfig);
     const stateDir = api.resolvePath("health");
     const store = new HealthStore({

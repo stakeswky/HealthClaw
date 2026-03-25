@@ -21,9 +21,9 @@ HealthClaw 是一个运行在 OpenClaw Gateway 上的健康数据插件。
 
 1. 安装并启用插件
 2. 询问用户画像与免责声明
-3. 运行一次性 bootstrap CLI
+3. 运行公开 installer CLI
 4. 向用户返回原样 ASCII QR 或手动配对字段
-5. 脚本会在后台延迟重启 gateway
+5. installer 会重启 gateway
 6. 等待用户完成配对和首次同步
 7. 插件自动把“匹配成功 + 首次健康分析”发回当前 OpenClaw 主 agent 会话
 
@@ -32,48 +32,47 @@ HealthClaw 是一个运行在 OpenClaw Gateway 上的健康数据插件。
 - 严格按顺序执行，不要跳步
 - 在真正运行 OpenClaw Gateway 的那台机器上执行
 - 除非用户明确要求自建 relay，否则默认使用官方 relay：`https://healthclaw.proxypool.eu.org`
-- 不要在“插件安装成功”后停下，必须继续执行 bootstrap CLI
+- 不要在“插件安装成功”后停下，必须继续执行 installer CLI 的初始化部分
 - 不要把 ASCII QR 当成跨聊天软件稳定可用的配对介质
 
 ---
 
 ## 安装步骤
 
-### 1. 获取仓库
+### 1. 首选：公开 installer CLI
+
+```bash
+npx -y @stakeswky/openclaw-health-cli install
+```
+
+这条命令会自动完成：
+
+- 检测本地 `openclaw --version`
+- 安装或更新 `@stakeswky/openclaw-health`
+- 询问 relay 选择和可选用户画像
+- 运行 setup，输出 ASCII QR 和手动配对字段
+- 在 setup 成功后重启 gateway
+
+### 2. 开发 / 仓库直装兼容路径
+
+如果你是在本地开发或必须从源码仓库直装，才使用下面这条兼容路径：
 
 ```bash
 git clone https://github.com/stakeswky/HealthClaw.git
 cd HealthClaw
-```
-
-### 2. 安装依赖并构建
-
-```bash
 npm install
 npm run build
-```
-
-预期结果：
-
-- `npm install` 成功
-- `npm run build` 成功
-
-### 3. 安装到 OpenClaw
-
-推荐使用本地路径 link 安装：
-
-```bash
 ~/.openclaw/bin/openclaw plugins install --link "$(pwd)"
 ~/.openclaw/bin/openclaw plugins enable health
 ```
 
-然后确保 OpenClaw 使用本地 gateway：
+然后执行 repo-local bootstrap：
 
 ```bash
-~/.openclaw/bin/openclaw config set gateway.mode local
+npm run bootstrap:install -- --consent no --relay official
 ```
 
-### 4. 确认 Gateway 和插件状态
+### 3. 仓库直装后的状态确认
 
 ```bash
 ~/.openclaw/bin/openclaw gateway start
@@ -110,7 +109,13 @@ npm run build
 
 ### 3. 运行一次性 bootstrap CLI
 
-不要在首次安装流中再手动串联 `/health onboarding ...` 和 `/health_setup`。必须直接运行一次性 bootstrap CLI。
+公开安装路径不要再手动串联 `/health onboarding ...` 和 `/health_setup`，也不要退回到 repo-local bootstrap。首次社区安装应直接执行：
+
+```bash
+npx -y @stakeswky/openclaw-health-cli install
+```
+
+只有在源码仓库直装时，才使用一次性 bootstrap CLI。
 
 如果用户同意提供画像：
 
@@ -201,7 +206,8 @@ tail -n 80 ~/.openclaw/logs/gateway.log
 ## 当前约束
 
 - 本仓库只包含 OpenClaw 插件本体，不包含 iOS App 和 relay worker 代码
-- 正确的一次性初始化入口是 `npm run bootstrap:install -- ...`
+- 首次社区安装入口是 `npx -y @stakeswky/openclaw-health-cli install`
+- `npm run bootstrap:install -- ...` 只作为源码仓库直装兼容路径保留
 - `/health onboarding start` 只作为已安装场景下的辅助高层命令保留
 - `/health_setup` 仍然是底层配对命令，但首次安装不应要求 agent 再手动串联它
 - 正确的远程兜底方式是“手动配对字段”，不是 PNG 二维码
