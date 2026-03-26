@@ -2,7 +2,7 @@
   "id": "health",
   "name": "Health",
   "description": "Encrypted iOS health data sync with AI-powered daily analysis reports.",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
