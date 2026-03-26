@@ -162,6 +162,19 @@ function resolveQRCodeRenderer(module: typeof import("qrcode-terminal")): QRCode
   return resolved as QRCodeTerminalRenderer;
 }
 
+function translateConnectivityMessage(message: string): string {
+  return message
+    .replace("Relay responded with HTTP ", "Relay 返回 HTTP ")
+    .replace("Cannot reach relay: ", "无法访问 Relay：");
+}
+
+function translateRegistrationMessage(message: string): string {
+  return message
+    .replace("Gateway registered with relay", "网关已成功注册到 Relay")
+    .replace("Registration failed: ", "注册失败：")
+    .replace("Registration request failed: ", "注册请求失败：");
+}
+
 async function runSetupWizard(api: OpenClawPluginApi): Promise<string> {
   return runSetupWizardWithOptions(api, { connectionMode: "interactive" });
 }
@@ -173,7 +186,7 @@ export async function runSetupWizardWithOptions(
   const lines: string[] = [];
   const log = (msg: string) => lines.push(msg);
 
-  log("🔧 HealthClaw — Setup Wizard\n");
+  log("🔧 HealthClaw 安装向导\n");
 
   // Step 1: Load or create key bundle
   const stateDir = api.resolvePath("health");
@@ -183,10 +196,10 @@ export async function runSetupWizardWithOptions(
     || process.env.HEALTHCLAW_DEVICE_ID
     || randomHex(32);
 
-  log("Loading gateway key bundle...");
+  log("正在加载网关密钥...");
   const bundle = await loadOrCreateKeyBundle({ keyDir, deviceId });
-  log(`  Device ID: ${bundle.deviceId}`);
-  log(`  X25519 public key loaded.\n`);
+  log(`  Device ID：${bundle.deviceId}`);
+  log("  已加载 X25519 公钥。\n");
 
   let relayURL: string;
 
@@ -194,68 +207,68 @@ export async function runSetupWizardWithOptions(
     // Step 2: Choose connection mode
     const rl = createInterface({ input: process.stdin, output: process.stdout });
     try {
-      log("Choose connection mode:");
-      log("  [1] Direct (public IP)");
-      log("  [2] Custom relay");
-      log("  [3] Official relay (default)\n");
+      log("请选择连接方式：");
+      log("  [1] 直连（公网 IP）");
+      log("  [2] 自定义 Relay");
+      log("  [3] 官方 Relay（默认）\n");
 
-      const choice = (await prompt(rl, "Enter choice [1/2/3]: ")).trim() || "3";
+      const choice = (await prompt(rl, "请输入选项 [1/2/3]：")).trim() || "3";
       if (choice === "1") {
         const ip = detectLocalIP();
         if (!ip) {
-          return lines.join("\n") + "\n❌ Could not detect a local IP address. Use option 2 or 3 instead.";
+          return lines.join("\n") + "\n❌ 无法检测到本机 IP，请改用选项 2 或 3。";
         }
         relayURL = `http://${ip}:${DEFAULT_PORT}`;
-        log(`\nUsing direct connection: ${relayURL}`);
+        log(`\n已使用直连：${relayURL}`);
       } else if (choice === "2") {
-        const input = (await prompt(rl, "Enter relay URL: ")).trim();
+        const input = (await prompt(rl, "请输入 Relay URL：")).trim();
         if (!input) {
-          return lines.join("\n") + "\n❌ No URL provided.";
+          return lines.join("\n") + "\n❌ 未提供 Relay URL。";
         }
         relayURL = input;
-        log(`\nTesting connectivity to ${relayURL}...`);
+        log(`\n正在测试 ${relayURL} 的连通性...`);
         const result = await testRelayConnectivity(relayURL);
-        log(`  ${result.message}`);
+        log(`  ${translateConnectivityMessage(result.message)}`);
         if (!result.ok) {
-          return lines.join("\n") + "\n❌ Relay is not reachable. Check the URL and try again.";
+          return lines.join("\n") + "\n❌ Relay 无法访问，请检查 URL 后重试。";
         }
       } else {
         relayURL = OFFICIAL_RELAY;
-        log(`\nUsing official relay: ${relayURL}`);
+        log(`\n已使用官方 Relay：${relayURL}`);
       }
     } finally {
       rl.close();
     }
   } else if (options.connectionMode === "official") {
     relayURL = OFFICIAL_RELAY;
-    log(`\nUsing official relay: ${relayURL}`);
+    log(`\n已使用官方 Relay：${relayURL}`);
   } else if (options.connectionMode === "direct") {
     const ip = detectLocalIP();
     if (!ip) {
-      return lines.join("\n") + "\n❌ Could not detect a local IP address. Use option 2 or 3 instead.";
+      return lines.join("\n") + "\n❌ 无法检测到本机 IP，请改用选项 2 或 3。";
     }
     relayURL = `http://${ip}:${DEFAULT_PORT}`;
-    log(`\nUsing direct connection: ${relayURL}`);
+    log(`\n已使用直连：${relayURL}`);
   } else if (options.connectionMode === "custom") {
     relayURL = options.relayURL.trim();
     if (!relayURL) {
-      return lines.join("\n") + "\n❌ No relay URL provided.";
+      return lines.join("\n") + "\n❌ 未提供 Relay URL。";
     }
-    log(`\nTesting connectivity to ${relayURL}...`);
+    log(`\n正在测试 ${relayURL} 的连通性...`);
     const result = await testRelayConnectivity(relayURL);
-    log(`  ${result.message}`);
+    log(`  ${translateConnectivityMessage(result.message)}`);
     if (!result.ok) {
-      return lines.join("\n") + "\n❌ Relay is not reachable. Check the URL and try again.";
+      return lines.join("\n") + "\n❌ Relay 无法访问，请检查 URL 后重试。";
     }
   } else {
-    return lines.join("\n") + "\n❌ Unsupported connection mode.";
+    return lines.join("\n") + "\n❌ 不支持的连接方式。";
   }
 
     // Step 3: Register gateway with relay
     const gatewayDeviceId = deriveDeviceId(bundle.ed25519PublicKeyPem);
     const ed25519PubBase64Url = extractEd25519PublicKeyBase64Url(bundle.ed25519PublicKeyPem);
 
-    log("\nRegistering gateway with relay...");
+    log("\n正在向 Relay 注册网关...");
     const regResult = await registerGatewayWithRelay(
       relayURL,
       gatewayDeviceId,
@@ -263,9 +276,9 @@ export async function runSetupWizardWithOptions(
       bundle.ed25519PrivateKeyPem,
     );
     if (!regResult.ok) {
-      return lines.join("\n") + `\n❌ ${regResult.message}`;
+      return lines.join("\n") + `\n❌ ${translateRegistrationMessage(regResult.message)}`;
     }
-    log(`  ✓ ${regResult.message}`);
+    log(`  ✓ ${translateRegistrationMessage(regResult.message)}`);
 
     // Step 4: Build QR payload
     const gatewayPublicKeyBase64 = extractX25519PublicKeyBase64(bundle.x25519PublicKeyPem);
@@ -281,7 +294,7 @@ export async function runSetupWizardWithOptions(
     const payloadJSON = JSON.stringify(payload);
 
     // Step 5: Render QR in terminal
-    log("\n📱 Scan this QR code with the HealthClaw iOS app:\n");
+    log("\n📱 请使用 HealthClaw iOS App 扫描下面的二维码：\n");
 
     let qrcodeModule: typeof import("qrcode-terminal");
     try {
@@ -289,7 +302,7 @@ export async function runSetupWizardWithOptions(
     } catch {
       log(renderPairingInstructions(
         payload,
-        "[qrcode-terminal not available — install it with: npm i qrcode-terminal]",
+        "[未检测到 qrcode-terminal，请执行：npm i qrcode-terminal]",
       ));
       return lines.join("\n");
     }
@@ -298,7 +311,7 @@ export async function runSetupWizardWithOptions(
     if (!qrcode) {
       log(renderPairingInstructions(
         payload,
-        "[qrcode-terminal loaded but no generate() export found]",
+        "[qrcode-terminal 已加载，但未找到 generate() 导出]",
       ));
       return lines.join("\n");
     }
@@ -313,7 +326,7 @@ export async function runSetupWizardWithOptions(
           resolve(text);
         });
       } catch (error) {
-        resolve(`[qrcode-terminal generate failed: ${error instanceof Error ? error.message : String(error)}]`);
+        resolve(`[qrcode-terminal 生成失败：${error instanceof Error ? error.message : String(error)}]`);
       }
     });
 
@@ -329,11 +342,11 @@ export async function runSetupWizardWithOptions(
     const configPath = path.join(stateDir, "relay-config.json");
     await fs.mkdir(stateDir, { recursive: true });
     await fs.writeFile(configPath, JSON.stringify(relayConfig, null, 2), "utf8");
-    log(`\n💾 Relay config saved to ${configPath}`);
+    log(`\n💾 Relay 配置已保存到 ${configPath}`);
 
-    log("\n✅ Setup complete. The iOS app will auto-configure after scanning.");
-    log(`\nRelay URL: ${relayURL}`);
-    log(`Device ID: ${gatewayDeviceId}`);
+    log("\n✅ 初始化完成。扫码后 iOS App 会自动完成配对。");
+    log(`\nRelay URL：${relayURL}`);
+    log(`Device ID：${gatewayDeviceId}`);
 
     return lines.join("\n");
 }

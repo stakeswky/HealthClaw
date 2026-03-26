@@ -14,14 +14,14 @@ export function renderPairingInstructions(payload: PairingPayload, qrText?: stri
   }
 
   lines.push(
-    "Note: This ASCII QR is terminal-local only. If you forward it through chat apps, scanning may fail.",
+    "注意：ASCII 二维码只保证当前终端本地扫码可用，转发到聊天软件后可能无法识别。",
     "",
-    "Manual pairing fallback:",
-    `Relay URL: ${payload.relayURL}`,
-    `Gateway Device ID: ${payload.gatewayDeviceId}`,
-    `Gateway Public Key (Base64): ${payload.gatewayPublicKeyBase64}`,
+    "手动配对备用信息：",
+    `Relay URL：${payload.relayURL}`,
+    `网关 Device ID：${payload.gatewayDeviceId}`,
+    `网关公钥（Base64）：${payload.gatewayPublicKeyBase64}`,
     "",
-    "Payload JSON:",
+    "Payload JSON：",
     JSON.stringify(payload, null, 2),
   );
 
