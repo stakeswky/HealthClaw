@@ -109,6 +109,14 @@ export class HealthReportService {
       status: "report",
       markdown: appendProfileContext(generateMarkdownReport(result, focusAreas), profileContextLines),
       warnings,
+      structured: {
+        period: input.period,
+        startDate,
+        endDate,
+        trends: result.trends,
+        anomalies: result.anomalies,
+        recommendations: result.recommendations,
+      },
     };
   }
 }

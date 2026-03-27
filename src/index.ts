@@ -34,6 +34,8 @@ import { ProfileStore } from "./profile/ProfileStore.js";
 import { PendingOnboardingStore } from "./onboarding/PendingOnboardingStore.js";
 import { registerHealthCommand } from "./commands/health-command.js";
 import { ReportDeliveryService } from "./report/ReportDeliveryService.js";
+import { DownstreamPushService } from "./downstream/index.js";
+import type { DownstreamHealthAnalysis } from "./shared-types/index.js";
 import {
   assertCompatibleOpenClawVersion,
   resolveHostOpenClawVersion,
@@ -175,6 +177,8 @@ const healthPluginConfigSchema = {
           : DEFAULT_RELAY_BATCH_SIZE,
       gatewayDeviceId:
         typeof cfg.gatewayDeviceId === "string" ? cfg.gatewayDeviceId.trim() : undefined,
+      reportPeriod:
+        cfg.reportPeriod === "month" ? "month" : "week",
       notify:
         cfg.notify && typeof cfg.notify === "object"
           ? {
@@ -230,6 +234,7 @@ const healthPluginConfigSchema = {
         default: DEFAULT_RELAY_BATCH_SIZE,
       },
       gatewayDeviceId: { type: "string" },
+      reportPeriod: { type: "string", enum: ["week", "month"], default: "week" },
       notify: {
         type: "object",
         additionalProperties: false,
@@ -374,6 +379,19 @@ const plugin = {
         );
 
         const relayConfig = resolveRelayPollingRuntimeConfig(mergedCfg);
+
+        let downstreamPush: DownstreamPushService | null = null;
+        if (relayConfig) {
+          downstreamPush = new DownstreamPushService({
+            logger: api.logger,
+            config: {
+              relayUrl: relayConfig.relayUrl,
+              gatewayDeviceId: relayConfig.gatewayDeviceId,
+              gatewayEd25519PrivateKey: relayConfig.gatewayEd25519PrivateKey,
+            },
+          });
+        }
+
         if (relayConfig && mergedCfg.enableRelayPolling !== false) {
           relayService = new RelayHealthIngestionService({
             store,
@@ -393,6 +411,45 @@ const plugin = {
                   },
                   action,
                 });
+              }
+
+              if (downstreamPush) {
+                try {
+                  const result = await reportService.generate({
+                    userId: payload.userId,
+                    period: (cfg.reportPeriod ?? "week") as "week" | "month",
+                    focusAreas: cfg.focusAreas ?? ["general_wellness"],
+                  });
+                  if (result.status === "report") {
+                    const analysis: DownstreamHealthAnalysis = {
+                      type: "health_analysis",
+                      period: result.structured.period,
+                      startDate: result.structured.startDate,
+                      endDate: result.structured.endDate,
+                      language: cfg.language ?? DEFAULT_LANGUAGE,
+                      trends: result.structured.trends.map((t) => ({
+                        metric: t.metric,
+                        direction: t.direction,
+                        changePercent: t.changePercent,
+                        currentValue: t.currentValue,
+                        previousValue: t.previousValue,
+                      })),
+                      anomalies: result.structured.anomalies.map((a) => ({
+                        metric: a.metric,
+                        type: a.type,
+                        severity: a.severity,
+                        message: a.message,
+                        value: a.value,
+                      })),
+                      recommendations: result.structured.recommendations,
+                      generatedAtMs: Date.now(),
+                    };
+                    await downstreamPush.pushAnalysis(analysis);
+                  }
+                } catch (err) {
+                  const msg = err instanceof Error ? err.message : String(err);
+                  api.logger.warn(`health: on-demand analysis push failed: ${msg}`);
+                }
               }
             },
           });
@@ -423,6 +480,34 @@ const plugin = {
               notifyChannel: cfg.notify?.channel,
               reportChannel: cfg.reportChannel,
             }),
+            onReportGenerated: downstreamPush
+              ? async (_userId, result) => {
+                  const analysis: DownstreamHealthAnalysis = {
+                    type: "health_analysis",
+                    period: result.structured.period,
+                    startDate: result.structured.startDate,
+                    endDate: result.structured.endDate,
+                    language: cfg.language ?? DEFAULT_LANGUAGE,
+                    trends: result.structured.trends.map((t) => ({
+                      metric: t.metric,
+                      direction: t.direction,
+                      changePercent: t.changePercent,
+                      currentValue: t.currentValue,
+                      previousValue: t.previousValue,
+                    })),
+                    anomalies: result.structured.anomalies.map((a) => ({
+                      metric: a.metric,
+                      type: a.type,
+                      severity: a.severity,
+                      message: a.message,
+                      value: a.value,
+                    })),
+                    recommendations: result.structured.recommendations,
+                    generatedAtMs: Date.now(),
+                  };
+                  await downstreamPush.pushAnalysis(analysis);
+                }
+              : undefined,
           });
           scheduler.start();
         }

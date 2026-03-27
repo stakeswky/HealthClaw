@@ -9,3 +9,4 @@ export * from "./envelope.js";
 export * from "./health-data.js";
 export * from "./api.js";
 export * from "./do-contract.js";
+export * from "./downstream.js";

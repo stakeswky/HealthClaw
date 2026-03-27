@@ -1,5 +1,5 @@
 import type { HealthFocusArea } from "../types.js";
-import type { ReportPeriod } from "../tools/health-report.js";
+import type { ReportPeriod, MetricTrend, AnomalyDetection } from "../tools/health-report.js";
 
 export type HealthReportServiceInput = {
   userId: string;
@@ -8,6 +8,18 @@ export type HealthReportServiceInput = {
 };
 
 export type HealthReportServiceResult =
-  | { status: "report"; markdown: string; warnings: string[] }
+  | {
+      status: "report";
+      markdown: string;
+      warnings: string[];
+      structured: {
+        period: ReportPeriod;
+        startDate: string;
+        endDate: string;
+        trends: MetricTrend[];
+        anomalies: AnomalyDetection[];
+        recommendations: string[];
+      };
+    }
   | { status: "no_data"; warnings: string[] }
   | { status: "error"; errorMessage: string; warnings: string[] };

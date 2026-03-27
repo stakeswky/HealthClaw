@@ -344,11 +344,78 @@ export async function runSetupWizardWithOptions(
     await fs.writeFile(configPath, JSON.stringify(relayConfig, null, 2), "utf8");
     log(`\n💾 Relay 配置已保存到 ${configPath}`);
 
-    log("\n✅ 初始化完成。扫码后 iOS App 会自动完成配对。");
+    log("\n⏳ 正在等待 iOS App 扫码并完成配对...");
+    log("   （超时：5 分钟）\n");
+
+    const pairingResult = await waitForPairing(
+      relayURL,
+      gatewayDeviceId,
+      bundle.ed25519PrivateKeyPem,
+      log,
+    );
+
+    if (pairingResult.paired) {
+      log(`\n✅ iOS 设备已成功配对！（设备：${pairingResult.iosDeviceId?.slice(0, 8)}…）`);
+    } else {
+      log("\n⚠️  配对等待超时。iOS App 仍然可以稍后继续配对，二维码信息已经保存。");
+      log("   如需重新生成二维码，请再次运行 health_setup。");
+    }
+
     log(`\nRelay URL：${relayURL}`);
     log(`Device ID：${gatewayDeviceId}`);
 
     return lines.join("\n");
+}
+
+const PAIRING_POLL_INTERVAL_MS = 3_000;
+const PAIRING_TIMEOUT_MS = 5 * 60 * 1_000;
+
+async function waitForPairing(
+  relayURL: string,
+  gatewayDeviceId: string,
+  ed25519PrivateKeyPem: string,
+  log: (msg: string) => void,
+): Promise<{ paired: boolean; iosDeviceId?: string }> {
+  const privateKey = createPrivateKey(ed25519PrivateKeyPem);
+  const url = new URL(`/v1/health/pairing-status/${gatewayDeviceId}`, relayURL);
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < PAIRING_TIMEOUT_MS) {
+    await new Promise((resolve) => setTimeout(resolve, PAIRING_POLL_INTERVAL_MS));
+
+    const signedAtMs = Date.now();
+    const signaturePayload = `healthclaw-poll-v1\n${gatewayDeviceId}\n${signedAtMs}\nGET /v1/health/poll/${gatewayDeviceId}`;
+    const signature = sign(null, Buffer.from(signaturePayload, "utf8"), privateKey).toString("base64url");
+
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10_000);
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "x-openclaw-gateway-device-id": gatewayDeviceId,
+          "x-openclaw-gateway-signature": signature,
+          "x-openclaw-gateway-signed-at-ms": String(signedAtMs),
+        },
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+
+      if (response.ok) {
+        const result = await response.json() as { ok: boolean; paired: boolean; iosDeviceId?: string };
+        if (result.paired) {
+          return { paired: true, iosDeviceId: result.iosDeviceId };
+        }
+      }
+
+      const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+      log(`   ⏳ 等待中...（${elapsed}s）`);
+    } catch {
+      // 网络波动时继续重试
+    }
+  }
+
+  return { paired: false };
 }
 
 function randomHex(bytes: number): string {

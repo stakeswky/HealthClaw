@@ -10,6 +10,8 @@ import type { HealthFocusArea } from "../types.js";
 import type { HealthReportService } from "../report/HealthReportService.js";
 import { ReportDeliveryService } from "../report/ReportDeliveryService.js";
 
+import type { HealthReportServiceResult } from "../report/types.js";
+
 export type DailyReportSchedulerOpts = {
   reportTime: string; // "HH:MM"
   store: HealthStore;
@@ -18,6 +20,7 @@ export type DailyReportSchedulerOpts = {
   language: string;
   reportService: HealthReportService;
   deliveryService: ReportDeliveryService;
+  onReportGenerated?: (userId: string, result: HealthReportServiceResult & { status: "report" }) => Promise<void> | void;
 };
 
 export class DailyReportScheduler {
@@ -27,6 +30,7 @@ export class DailyReportScheduler {
   private readonly focusAreas: string[];
   private readonly reportService: HealthReportService;
   private readonly deliveryService: ReportDeliveryService;
+  private readonly onReportGenerated?: DailyReportSchedulerOpts["onReportGenerated"];
   private timer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(opts: DailyReportSchedulerOpts) {
@@ -36,6 +40,7 @@ export class DailyReportScheduler {
     this.focusAreas = opts.focusAreas;
     this.reportService = opts.reportService;
     this.deliveryService = opts.deliveryService;
+    this.onReportGenerated = opts.onReportGenerated;
   }
 
   start(): void {
@@ -115,6 +120,15 @@ export class DailyReportScheduler {
             this.logger.info(`health: daily report generated for user=${user.userId}\n${result.markdown}`);
           } else {
             this.logger.warn(`health: daily report generated but undeliverable for user=${user.userId}`);
+          }
+
+          if (this.onReportGenerated) {
+            try {
+              await this.onReportGenerated(user.userId, result);
+            } catch (pushErr) {
+              const pushMsg = pushErr instanceof Error ? pushErr.message : String(pushErr);
+              this.logger.warn(`health: downstream push failed for user=${user.userId}: ${pushMsg}`);
+            }
           }
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);

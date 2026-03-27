@@ -2,7 +2,7 @@
   "id": "health",
   "name": "Health",
   "description": "Encrypted iOS health data sync with AI-powered daily analysis reports.",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
@@ -56,6 +56,11 @@
       },
       "gatewayDeviceId": {
         "type": "string"
+      },
+      "reportPeriod": {
+        "type": "string",
+        "enum": ["week", "month"],
+        "default": "week"
       },
       "notify": {
         "type": "object",
