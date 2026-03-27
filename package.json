@@ -1,6 +1,6 @@
 {
   "name": "@stakeswky/healthclaw",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "HealthClaw data plugin — encrypted iOS health sync + AI analysis",
   "type": "module",
   "main": "./dist/index.js",

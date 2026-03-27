@@ -136,6 +136,8 @@ export interface HealthPluginConfig {
   relayBatchSize?: number;
   /** Optional override for the gateway device ID; falls back to HEALTHCLAW_DEVICE_ID */
   gatewayDeviceId?: string;
+  /** Report analysis period: "week" (7 days) or "month" (30 days), default "week" */
+  reportPeriod?: "week" | "month";
 }
 
 /**
